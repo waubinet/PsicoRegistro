@@ -1,0 +1,48 @@
+[package]
+name = "psicoregistro"
+version = "0.1.0"
+description = "Registro local-first para profissionais de Psicologia"
+authors = ["PsicoRegistro"]
+edition = "2021"
+
+[lib]
+name = "psicoregistro_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+doctest = false
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-dialog = "2"
+tauri-plugin-updater = "2"
+tauri-plugin-process = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+# idna_adapter 1.1.x usa o backend unicode-rs (sem os crates de dados `icu_*`),
+# evitando build scripts pesados que o Smart App Control do Windows bloqueia.
+idna_adapter = "=1.1.0"
+rusqlite = { version = "0.31", features = ["bundled"] }
+uuid = { version = "1", features = ["v4"] }
+argon2 = "0.5"
+chacha20poly1305 = "0.10"
+rand = "0.8"
+blake3 = "1"
+base64 = "0.22"
+zeroize = "1"
+chrono = { version = "0.4", features = ["serde"] }
+thiserror = "1"
+
+[dev-dependencies]
+tempfile = "3"
+
+[features]
+custom-protocol = ["tauri/custom-protocol"]
+
+[profile.release]
+panic = "abort"
+codegen-units = 1
+lto = true
+opt-level = "s"
+strip = true

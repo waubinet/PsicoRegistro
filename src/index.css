@@ -1,0 +1,84 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --font-base: 16px;
+  --c-50: #fafaf9;
+  --c-100: #f4f4f2;
+  --c-200: #e6e6e2;
+  --c-300: #d3d3cd;
+  --c-700: #4b4b46;
+  --c-800: #33332f;
+  --c-900: #1f1f1c;
+}
+
+.dark {
+  --c-50: #22221f;
+  --c-100: #2a2a27;
+  --c-200: #35352f;
+  --c-300: #4a4a43;
+  --c-700: #c9c9c2;
+  --c-800: #dfdfda;
+  --c-900: #f2f2ee;
+}
+
+html {
+  font-size: var(--font-base);
+}
+
+body {
+  @apply bg-base-50 text-base-900 antialiased;
+  font-family: "Segoe UI", system-ui, sans-serif;
+}
+
+.card {
+  @apply rounded-lg border border-base-200 bg-base-100 p-4;
+}
+
+.input {
+  @apply w-full rounded-md border border-base-300 bg-base-50 px-3 py-2 text-base-900
+    focus:outline-none focus:ring-2 focus:ring-accent;
+}
+
+.btn {
+  @apply inline-flex items-center justify-center gap-2 rounded-md px-4 py-2 font-medium
+    focus:outline-none focus:ring-2 focus:ring-accent disabled:opacity-50 disabled:cursor-not-allowed;
+}
+
+.btn-primary {
+  @apply btn bg-accent text-white hover:bg-accent-dark;
+}
+
+.btn-secondary {
+  @apply btn border border-base-300 bg-base-100 text-base-800 hover:bg-base-200;
+}
+
+.btn-danger {
+  @apply btn bg-red-700 text-white hover:bg-red-800;
+}
+
+.label {
+  @apply mb-1 block font-medium text-base-800;
+}
+
+.field-error {
+  @apply mt-1 text-sm text-red-700 dark:text-red-400;
+}
+
+.table-base {
+  @apply w-full text-left;
+}
+.table-base th {
+  @apply border-b border-base-300 px-3 py-2 font-semibold text-base-700;
+}
+.table-base td {
+  @apply border-b border-base-200 px-3 py-2;
+}
+.table-base tr:hover td {
+  @apply bg-base-200;
+}
+
+.badge {
+  @apply inline-block rounded-full px-2.5 py-0.5 text-sm font-medium bg-base-200 text-base-800;
+}
