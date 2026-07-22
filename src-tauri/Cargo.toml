@@ -1,6 +1,6 @@
 [package]
 name = "psicoregistro"
-version = "0.1.0"
+version = "0.1.1"
 description = "Registro local-first para profissionais de Psicologia"
 authors = ["PsicoRegistro"]
 edition = "2021"
