@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
+import { ExportDialog } from "@/components/ExportDialog";
 import { PageHeader } from "@/components/ui";
 
 type Group = { key: string; count: number };
@@ -40,6 +41,7 @@ function GroupTable(props: { title: string; rows: Group[]; labelMap?: Record<str
 export function StatsPage() {
   const [s, setS] = useState<Record<string, unknown> | null>(null);
   const [schoolNames, setSchoolNames] = useState<Record<string, string>>({});
+  const [exportOpen, setExportOpen] = useState(false);
 
   useEffect(() => {
     api.stats().then(setS).catch(() => undefined);
@@ -56,7 +58,44 @@ export function StatsPage() {
 
   return (
     <div>
-      <PageHeader title="Estatísticas (anonimizadas)" />
+      <PageHeader title="Estatísticas (anonimizadas)">
+        <button className="btn-secondary" onClick={() => setExportOpen(true)}>
+          Exportar relatório
+        </button>
+      </PageHeader>
+
+      {exportOpen && (
+        <ExportDialog
+          open
+          onClose={() => setExportOpen(false)}
+          title="Relatório estatístico anonimizado"
+          exportType="relatorio_estatistico"
+          targetKind="estatisticas"
+          sections={[
+            {
+              title: "Totais",
+              fields: [
+                { label: "Casos ativos", value: String(num("active_cases")) },
+                { label: "Pacientes", value: String(num("patients")) },
+                { label: "Estudantes", value: String(num("students")) },
+                { label: "Escolas ativas", value: String(num("schools")) },
+              ],
+            },
+            {
+              title: "Atividades escolares por tipo",
+              fields: g("school_by_activity")
+                .filter((r) => r.count >= K_ANON)
+                .map((r) => ({ label: r.key, value: String(r.count) })),
+            },
+            {
+              title: "Encaminhamentos por área",
+              fields: g("referrals_by_area")
+                .filter((r) => r.count >= K_ANON)
+                .map((r) => ({ label: r.key, value: String(r.count) })),
+            },
+          ]}
+        />
+      )}
       <p className="mb-4 text-sm text-base-700">
         Relatórios agregados sem identificação nominal. Grupos com menos de {K_ANON} indivíduos são
         suprimidos para evitar reidentificação. Nenhum conteúdo clínico, nome, CPF, contato ou

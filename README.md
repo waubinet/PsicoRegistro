@@ -5,7 +5,9 @@ Suíte **desktop local-first** para profissionais de Psicologia, com dois módul
 - **Prontuário Psicológico** — intervenção, psicoterapia e avaliação neuropsicológica.
 - **Psicologia Escolar** — escolas, estudantes, registros de atividade, contatos e encaminhamentos.
 
-Aplicação **Tauri 2 + React + TypeScript + SQLite**, sem internet, sem serviços externos, sem telemetria. Dados sensíveis criptografados com chave derivada de uma senha-mestra.
+Aplicação **Tauri 2 + React + TypeScript + SQLite**, offline e sem telemetria. A única conexão de rede é o verificador de atualizações (GitHub), que baixa apenas binários assinados e não envia dado algum.
+
+> ⚠ **Modo sem senha.** Esta versão abre direto, sem senha, por opção do usuário (uso pessoal em máquina própria). Os dados são gravados cifrados, mas **a chave fica junto no computador** — quem tiver acesso aos arquivos lê tudo, e o backup `.prbk` carrega a chave. A proteção efetiva passa a ser a senha da conta Windows e a criptografia de disco (**recomenda-se ativar o BitLocker**). O mecanismo de senha continua implementado, apenas desativado — veja [SECURITY.md](SECURITY.md) para reativá-lo (obrigatório em caso de distribuição ou comercialização).
 
 > ⚠ **Windows — Smart App Control**: se o seu Windows estiver com o **Smart App Control** em modo de imposição, a compilação nativa (`cargo`/`tauri build`) pode falhar com *"Uma política de Controle de Aplicativo bloqueou este arquivo"* (erro 4551), pois ele bloqueia build scripts recém-compilados de algumas dependências. Rode `.\scripts\verificar-projeto.ps1` para detectar. Para compilar, desative o Smart App Control em **Segurança do Windows → Controle de aplicativos e navegador → Configurações de proteção baseada em reputação → Smart App Control → Desativado** (essa ação é uma decisão de segurança sua e só pode ser revertida reinstalando o Windows). O frontend e a lógica do backend são totalmente testáveis sem essa mudança (veja abaixo).
 

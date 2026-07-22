@@ -19,6 +19,7 @@ export function CaseDetail() {
   const [entries, setEntries] = useState<Entity[]>([]);
   const [open, setOpen] = useState(false);
   const [selected, setSelected] = useState<Entity | null>(null);
+  const [timelineExport, setTimelineExport] = useState(false);
   const nav = useNavigate();
 
   const load = useCallback(() => {
@@ -40,10 +41,35 @@ export function CaseDetail() {
       <PageHeader
         title={`${labelOf(CASE_TYPES, caseType)} — ${String(patient?.full_name ?? "")}`}
       >
+        <button className="btn-secondary" onClick={() => setTimelineExport(true)}>
+          Exportar linha do tempo
+        </button>
         <button className="btn-secondary" onClick={() => nav(`/pacientes/${caseRow.patient_id}`)}>
           ← Paciente
         </button>
       </PageHeader>
+
+      {timelineExport && (
+        <ExportDialog
+          open
+          onClose={() => setTimelineExport(false)}
+          title="Linha do tempo do processo"
+          exportType="linha_do_tempo"
+          targetKind="clinical_cases"
+          targetId={id}
+          sections={[
+            {
+              title: `${labelOf(CASE_TYPES, caseType)} — ${String(patient?.full_name ?? "")}`,
+              fields: [...entries]
+                .sort((a, b) => String(a.entry_date).localeCompare(String(b.entry_date)))
+                .map((e) => ({
+                  label: formatDateBR(e.entry_date as string),
+                  value: `${labelOf(ENTRY_STATUS, e.status)}${e.theme ? ` — ${e.theme}` : ""}`,
+                })),
+            },
+          ]}
+        />
+      )}
 
       <CaseSummary caseRow={caseRow} onSaved={load} />
 

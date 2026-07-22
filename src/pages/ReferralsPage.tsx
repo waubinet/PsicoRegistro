@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { api, type Entity } from "@/lib/api";
 import { daysSince, formatDateBR } from "@/lib/format";
 import { labelOf, REFERRAL_AREAS, REFERRAL_STATUS } from "@/lib/options";
+import { ExportDialog } from "@/components/ExportDialog";
 import { EmptyState, Loading, PageHeader } from "@/components/ui";
 
 const OPEN_STATUS = ["planejado", "responsavel_orientado", "entregue", "agendado", "em_acompanhamento", "sem_retorno"];
@@ -11,6 +12,7 @@ export function ReferralsPage() {
   const [items, setItems] = useState<Entity[] | null>(null);
   const [students, setStudents] = useState<Record<string, string>>({});
   const [tab, setTab] = useState<"pendentes" | "todos">("pendentes");
+  const [exportOpen, setExportOpen] = useState(false);
   const nav = useNavigate();
 
   useEffect(() => {
@@ -32,7 +34,32 @@ export function ReferralsPage() {
 
   return (
     <div>
-      <PageHeader title="Encaminhamentos" />
+      <PageHeader title="Encaminhamentos">
+        <button className="btn-secondary" onClick={() => setExportOpen(true)}>
+          Exportar histórico
+        </button>
+      </PageHeader>
+
+      {exportOpen && (
+        <ExportDialog
+          open
+          onClose={() => setExportOpen(false)}
+          title="Histórico de encaminhamentos"
+          exportType="historico_encaminhamentos"
+          targetKind="referrals"
+          sections={[
+            {
+              title: tab === "todos" ? "Todos os encaminhamentos" : "Encaminhamentos pendentes",
+              fields: filtered.map((r) => ({
+                label: `${formatDateBR(r.referral_date as string)} — ${students[String(r.student_id)] ?? "—"}`,
+                value: `${labelOf(REFERRAL_AREAS, r.area)} · ${labelOf(REFERRAL_STATUS, r.status)}${
+                  r.destination ? ` · ${r.destination}` : ""
+                }`,
+              })),
+            },
+          ]}
+        />
+      )}
       <div className="mb-4 flex gap-2">
         <button
           className={tab === "pendentes" ? "btn-primary !py-1" : "btn-secondary !py-1"}

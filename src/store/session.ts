@@ -7,13 +7,10 @@ type SessionState = {
   restricted: boolean;
   theme: "light" | "dark";
   fontScale: number;
-  autolockMinutes: number;
   loading: boolean;
   refresh: () => Promise<void>;
-  lock: () => Promise<void>;
   setTheme: (t: "light" | "dark") => void;
   setFontScale: (s: number) => void;
-  setAutolockMinutes: (m: number) => void;
 };
 
 export const useSession = create<SessionState>((set, get) => ({
@@ -22,27 +19,20 @@ export const useSession = create<SessionState>((set, get) => ({
   restricted: false,
   theme: "light",
   fontScale: 1,
-  autolockMinutes: 10,
   loading: true,
   refresh: async () => {
     try {
+      // Modo sem senha: o backend já abre a sessão na inicialização.
       const s = await api.status();
       set({ ...s, loading: false });
-      if (s.unlocked) {
-        const cfg = await api.settingsGet();
-        const theme = cfg.theme === "dark" ? "dark" : "light";
-        const fontScale = Number(cfg.font_scale) || 1;
-        const autolockMinutes = Number(cfg.autolock_minutes) || 10;
-        set({ theme, fontScale, autolockMinutes });
-        applyAppearance(theme, fontScale);
-      }
+      const cfg = await api.settingsGet();
+      const theme = cfg.theme === "dark" ? "dark" : "light";
+      const fontScale = Number(cfg.font_scale) || 1;
+      set({ theme, fontScale });
+      applyAppearance(theme, fontScale);
     } catch {
       set({ loading: false });
     }
-  },
-  lock: async () => {
-    await api.lock().catch(() => undefined);
-    set({ unlocked: false, restricted: false });
   },
   setTheme: (theme) => {
     set({ theme });
@@ -53,10 +43,6 @@ export const useSession = create<SessionState>((set, get) => ({
     set({ fontScale });
     applyAppearance(get().theme, fontScale);
     void api.settingsSet("font_scale", String(fontScale)).catch(() => undefined);
-  },
-  setAutolockMinutes: (m) => {
-    set({ autolockMinutes: m });
-    void api.settingsSet("autolock_minutes", String(m)).catch(() => undefined);
   },
 }));
 

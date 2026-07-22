@@ -12,8 +12,21 @@ const ROUTE: Record<string, (id: string) => string> = {
   reminders: () => `/pendencias`,
 };
 
+const KIND_OPTIONS = [
+  { value: "", label: "Todos os tipos" },
+  { value: "patients", label: "Pacientes" },
+  { value: "students", label: "Estudantes" },
+  { value: "schools", label: "Escolas" },
+  { value: "clinical_cases", label: "Casos clínicos" },
+  { value: "reminders", label: "Pendências" },
+];
+
 export function SearchPage() {
   const [q, setQ] = useState("");
+  const [kind, setKind] = useState("");
+  const [status, setStatus] = useState("");
+  const [from, setFrom] = useState("");
+  const [to, setTo] = useState("");
   const [results, setResults] = useState<Record<string, string>[] | null>(null);
   const nav = useNavigate();
 
@@ -23,7 +36,18 @@ export function SearchPage() {
       setResults([]);
       return;
     }
-    setResults(await api.search(q).catch(() => []));
+    const all = await api.search(q).catch(() => []);
+    setResults(
+      all.filter((r) => {
+        if (kind && r.table !== kind) return false;
+        if (status && !String(r.status ?? "").toLowerCase().includes(status.toLowerCase()))
+          return false;
+        const day = String(r.date ?? "").slice(0, 10);
+        if (from && day < from) return false;
+        if (to && day > to) return false;
+        return true;
+      }),
+    );
   }
 
   return (
@@ -41,6 +65,51 @@ export function SearchPage() {
           Buscar
         </button>
       </form>
+
+      <div className="mb-4 flex flex-wrap items-end gap-3">
+        <div>
+          <label className="label" htmlFor="f-kind">
+            Tipo
+          </label>
+          <select id="f-kind" className="input" value={kind} onChange={(e) => setKind(e.target.value)}>
+            {KIND_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="label" htmlFor="f-status">
+            Situação contém
+          </label>
+          <input id="f-status" className="input" value={status} onChange={(e) => setStatus(e.target.value)} />
+        </div>
+        <div>
+          <label className="label" htmlFor="f-from">
+            De
+          </label>
+          <input id="f-from" type="date" className="input" value={from} onChange={(e) => setFrom(e.target.value)} />
+        </div>
+        <div>
+          <label className="label" htmlFor="f-to">
+            Até
+          </label>
+          <input id="f-to" type="date" className="input" value={to} onChange={(e) => setTo(e.target.value)} />
+        </div>
+        <button
+          type="button"
+          className="btn-secondary"
+          onClick={() => {
+            setKind("");
+            setStatus("");
+            setFrom("");
+            setTo("");
+          }}
+        >
+          Limpar filtros
+        </button>
+      </div>
       <p className="mb-4 text-sm text-base-700">
         Os resultados mostram apenas identificação administrativa — nunca conteúdo clínico.
       </p>

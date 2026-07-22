@@ -118,6 +118,7 @@ export const REFERRAL_STATUS: Option[] = [
 ];
 
 export const INSTITUTIONAL_TYPES: Option[] = [
+  { value: "ocorrencia_visita", label: "Ocorrência de visita" },
   { value: "reuniao_institucional", label: "Reunião institucional" },
   { value: "formacao_professores", label: "Formação de professores" },
   { value: "projeto", label: "Projeto" },

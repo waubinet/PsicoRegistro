@@ -2,13 +2,14 @@
 
 ## Primeiro uso
 
-1. Ao abrir pela primeira vez, crie a **senha-mestra** (mínimo 8 caracteres) e confirme.
-2. **Guarde essa senha**: ela protege todos os dados por criptografia e **não há recuperação** se for perdida.
-3. Opcional: em **Configurações → Dados de demonstração**, crie registros fictícios para explorar o sistema.
+1. Abra o **PsicoRegistro** pelo Menu Iniciar. Ele abre direto no painel — **não há senha**.
+2. Opcional: em **Configurações → Dados de demonstração**, crie registros fictícios para explorar o sistema.
+
+> ⚠ Como não há senha no aplicativo, quem tiver acesso ao seu computador (ou aos arquivos de dados) acessa os registros. Mantenha a conta do Windows protegida por senha e, de preferência, ative a criptografia de disco (BitLocker). Trate os arquivos de backup como confidenciais.
 
 ## Navegação
 
-Menu lateral recolhível com: Painel, Prontuário Psicológico, Psicologia Escolar, Encaminhamentos, Agenda e pendências, Pesquisa, Estatísticas, Backup, Auditoria, Lixeira e Configurações. Use **🔒 Bloquear agora** ao se ausentar (também bloqueia sozinho após o tempo configurado).
+Menu lateral recolhível com: Painel, Prontuário Psicológico, Psicologia Escolar, Encaminhamentos, Agenda e pendências, Pesquisa, Estatísticas, Backup, Auditoria, Lixeira e Configurações.
 
 ## Prontuário Psicológico
 
@@ -37,15 +38,18 @@ Em um registro finalizado ou no histórico do estudante, use **Exportar**. Revis
 
 ## Backup
 
-- **Backup → Criar backup agora**: gera um arquivo `.prbk` cifrado e verificado. Faça isso com regularidade.
-- **Restaurar**: seleção do arquivo, confirmação em duas etapas e senha do backup. Uma cópia de segurança do estado atual é criada automaticamente.
+- **Backup → Criar backup agora**: gera um arquivo `.prbk` verificado. Faça isso com regularidade.
+- **Restaurar**: seleção do arquivo e confirmação em duas etapas. Uma cópia de segurança do estado atual é criada automaticamente antes de substituir.
+
+> ⚠ O arquivo `.prbk` carrega a chave junto — qualquer pessoa com ele lê os dados. Guarde-o em local seguro.
 
 ## Configurações
 
-Tema, tamanho de fonte, tempo de bloqueio automático, cabeçalho profissional (para exportações), troca de senha e gestão dos dados de demonstração.
+Tema, tamanho de fonte, lembrete de backup, cabeçalho profissional (para exportações), verificação de atualizações e gestão dos dados de demonstração.
 
 ## Boas práticas
 
 - Registros sucintos, objetivos e necessários.
-- Bloqueie ao se ausentar; faça backups; guarde a senha.
+- Faça backups regularmente e guarde-os com cuidado.
+- Mantenha a conta do Windows protegida — é ela que guarda o acesso aos seus registros.
 - O sistema auxilia o registro — não substitui seu julgamento clínico nem emite diagnósticos.

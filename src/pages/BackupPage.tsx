@@ -3,16 +3,13 @@ import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import { formatDateTimeBR } from "@/lib/format";
 import { Modal, PageHeader, useToast } from "@/components/ui";
-import { useSession } from "@/store/session";
 
 export function BackupPage() {
   const [lastBackup, setLastBackup] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [restoreStep, setRestoreStep] = useState<0 | 1 | 2>(0);
   const [restoreFile, setRestoreFile] = useState("");
-  const [restorePw, setRestorePw] = useState("");
   const toast = useToast();
-  const { lock } = useSession();
 
   const loadInfo = () =>
     api.dashboard().then((d) => setLastBackup((d.last_backup_at as string) ?? null)).catch(() => undefined);
@@ -52,11 +49,10 @@ export function BackupPage() {
   async function doRestore() {
     setBusy(true);
     try {
-      await api.backupRestore(restoreFile, restorePw);
-      toast("ok", "Backup restaurado. A aplicação será bloqueada para recarregar os dados.");
+      await api.backupRestore(restoreFile);
+      toast("ok", "Backup restaurado com sucesso.");
       setRestoreStep(0);
-      setRestorePw("");
-      await lock();
+      await loadInfo();
     } catch (e) {
       toast("error", `Falha na restauração: ${String(e)}`);
     } finally {
@@ -114,20 +110,15 @@ export function BackupPage() {
       </Modal>
 
       <Modal open={restoreStep === 2} onClose={() => setRestoreStep(0)} title="Restaurar — etapa 2 de 2">
-        <p className="mb-4">Digite a senha-mestra usada no backup para confirmar a restauração.</p>
-        <input
-          type="password"
-          className="input mb-4"
-          value={restorePw}
-          onChange={(e) => setRestorePw(e.target.value)}
-          placeholder="Senha do backup"
-          autoFocus
-        />
+        <p className="mb-4">
+          Confirmação final: os dados atuais serão substituídos pelos do backup. Uma cópia de
+          segurança do estado atual será criada automaticamente antes.
+        </p>
         <div className="flex justify-end gap-3">
           <button className="btn-secondary" onClick={() => setRestoreStep(0)}>
             Cancelar
           </button>
-          <button className="btn-danger" onClick={() => void doRestore()} disabled={busy || !restorePw}>
+          <button className="btn-danger" onClick={() => void doRestore()} disabled={busy}>
             Restaurar agora
           </button>
         </div>

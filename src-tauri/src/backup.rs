@@ -1,6 +1,6 @@
 //! Backup criptografado em arquivo único (.prbk) e restauração segura.
 //!
-//! Formato: `PRBK1` + JSON do header (sal KDF + chave envelopada) + `\n` +
+//! Formato: `PRBK1` + JSON do header (chave local + hash) + `\n` +
 //! ciphertext (XChaCha20-Poly1305 da carga). Carga = JSON { db: base64,
 //! attachments: [{name, data: base64}] }. Antes do ciphertext gravamos o hash
 //! BLAKE3 da carga em claro no header para verificação de integridade.
@@ -13,14 +13,15 @@ use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 
-use crate::{audit, auth, crypto};
+use crate::{audit, crypto};
 
 const MAGIC: &[u8] = b"PRBK1\n";
 
 #[derive(Serialize, Deserialize)]
 struct Header {
-    kdf_salt: String,
-    wrapped_key: String,
+    /// Modo sem senha: a chave acompanha o arquivo, para a restauração ser automática.
+    /// Trate o arquivo de backup como confidencial.
+    key: String,
     payload_hash: String,
     created_at: String,
 }
@@ -41,7 +42,6 @@ pub fn create(
     attachments_dir: &Path,
     dest_path: &str,
 ) -> Result<(), String> {
-    let user = auth::get_user(conn)?.ok_or("Nenhum usuário configurado.")?;
     // Snapshot consistente do banco via VACUUM INTO.
     let tmp = std::env::temp_dir().join(format!("prbk-{}.db", uuid::Uuid::new_v4()));
     let tmp_str = tmp.to_string_lossy().replace('\'', "''");
@@ -66,8 +66,7 @@ pub fn create(
     let payload_hash = blake3::hash(&payload).to_hex().to_string();
     let ct = crypto::encrypt(key, &payload).map_err(|e| e.to_string())?;
     let header = Header {
-        kdf_salt: b64(&user.kdf_salt),
-        wrapped_key: b64(&user.wrapped_key),
+        key: b64(key),
         payload_hash,
         created_at: crate::now_iso(),
     };
@@ -80,7 +79,7 @@ pub fn create(
 
     // Verificação: relê e confere integridade antes de concluir.
     let written = fs::read(dest_path).map_err(|_| "Erro ao verificar backup.")?;
-    let (_, payload2) = decrypt_backup(&written, None, Some(key))?;
+    let (_, payload2) = decrypt_backup(&written)?;
     if blake3::hash(&payload2).to_hex().to_string() != blake3::hash(&payload).to_hex().to_string() {
         return Err("Verificação de integridade do backup falhou.".into());
     }
@@ -88,12 +87,8 @@ pub fn create(
     Ok(())
 }
 
-/// Decifra um arquivo de backup usando senha (restauração) ou chave já aberta (verificação).
-fn decrypt_backup(
-    raw: &[u8],
-    password: Option<&str>,
-    key: Option<&[u8; 32]>,
-) -> Result<(Header, Vec<u8>), String> {
+/// Decifra um arquivo de backup usando a chave gravada no próprio cabeçalho.
+fn decrypt_backup(raw: &[u8]) -> Result<(Header, Vec<u8>), String> {
     if !raw.starts_with(MAGIC) {
         return Err("Arquivo não é um backup do PsicoRegistro.".into());
     }
@@ -105,19 +100,10 @@ fn decrypt_backup(
     let header: Header =
         serde_json::from_slice(&rest[..nl]).map_err(|_| "Backup corrompido.")?;
     let ct = &rest[nl + 1..];
-    let master: [u8; 32] = if let Some(k) = key {
-        *k
-    } else {
-        let password = password.ok_or("Senha necessária.")?;
-        let salt = unb64(&header.kdf_salt)?;
-        let derived = crypto::derive_key(password, &salt).map_err(|e| e.to_string())?;
-        let wrapped = unb64(&header.wrapped_key)?;
-        crypto::decrypt(&derived, &wrapped)
-            .map_err(|_| "Senha incorreta para este backup.")?
-            .try_into()
-            .map_err(|_| "Backup corrompido.".to_string())?
-    };
-    let payload = crypto::decrypt(&master, ct).map_err(|_| "Senha incorreta ou backup corrompido.")?;
+    let master: [u8; 32] = unb64(&header.key)?
+        .try_into()
+        .map_err(|_| "Backup corrompido.".to_string())?;
+    let payload = crypto::decrypt(&master, ct).map_err(|_| "Backup corrompido.")?;
     if blake3::hash(&payload).to_hex().to_string() != header.payload_hash {
         return Err("Falha de integridade do backup.".into());
     }
@@ -131,10 +117,9 @@ pub fn restore(
     db_path: &Path,
     attachments_dir: &Path,
     src_path: &str,
-    password: &str,
 ) -> Result<(), String> {
     let raw = fs::read(src_path).map_err(|_| "Não foi possível ler o arquivo de backup.")?;
-    let (_, payload) = decrypt_backup(&raw, Some(password), None)?;
+    let (_, payload) = decrypt_backup(&raw)?;
     let parsed: serde_json::Value =
         serde_json::from_slice(&payload).map_err(|_| "Backup corrompido.")?;
     let db_bytes = unb64(parsed["db"].as_str().ok_or("Backup corrompido.")?)?;
@@ -200,7 +185,7 @@ mod tests {
 
         let conn = db::open(&db_path).unwrap();
         db::migrate(&conn).unwrap();
-        let key = auth::create_user(&conn, "senha-backup-1").unwrap();
+        let key = crate::auth::local_key(&conn).unwrap();
         crate::entities::create(
             &conn,
             &key,
@@ -217,10 +202,10 @@ mod tests {
         // apaga tudo e restaura
         fs::remove_file(&db_path).unwrap();
         fs::remove_file(att_dir.join("abc.bin")).unwrap();
-        restore(dir.path(), &db_path, &att_dir, bkp.to_str().unwrap(), "senha-backup-1").unwrap();
+        restore(dir.path(), &db_path, &att_dir, bkp.to_str().unwrap()).unwrap();
 
         let conn2 = db::open(&db_path).unwrap();
-        let key2 = auth::unlock(&conn2, "senha-backup-1").unwrap();
+        let key2 = crate::auth::local_key(&conn2).unwrap();
         let rows = crate::entities::list(&conn2, &key2, "patients", &[], false).unwrap();
         assert_eq!(rows.len(), 1);
         assert_eq!(rows[0]["full_name"], "Paciente Exemplo A");
@@ -235,15 +220,21 @@ mod tests {
     }
 
     #[test]
-    fn restore_wrong_password_fails() {
+    fn corrupted_backup_fails() {
         let dir = tempfile::tempdir().unwrap();
         let db_path = dir.path().join("psicoregistro.db");
         let att_dir = dir.path().join("attachments");
         let conn = db::open(&db_path).unwrap();
         db::migrate(&conn).unwrap();
-        let key = auth::create_user(&conn, "senha-backup-1").unwrap();
+        let key = crate::auth::local_key(&conn).unwrap();
         let bkp = dir.path().join("t.prbk");
         create(&conn, &key, &att_dir, bkp.to_str().unwrap()).unwrap();
-        assert!(restore(dir.path(), &db_path, &att_dir, bkp.to_str().unwrap(), "errada").is_err());
+        // adultera o final do arquivo: a verificação de integridade deve barrar
+        let mut raw = fs::read(&bkp).unwrap();
+        let last = raw.len() - 1;
+        raw[last] ^= 0xff;
+        fs::write(&bkp, raw).unwrap();
+        assert!(restore(dir.path(), &db_path, &att_dir, bkp.to_str().unwrap()).is_err());
     }
 }
+

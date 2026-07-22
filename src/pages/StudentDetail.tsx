@@ -13,6 +13,8 @@ import {
 } from "@/lib/options";
 import { FormBuilder, type FieldDef } from "@/components/FormBuilder";
 import { ExportDialog, type ExportSection } from "@/components/ExportDialog";
+import { ReportDialog } from "@/components/ReportDialog";
+import { relatorioAluno } from "@/lib/schoolReport";
 import { Timeline } from "@/components/Timeline";
 import { ConfirmDialog, EmptyState, Loading, Modal, PageHeader, useToast } from "@/components/ui";
 import { STUDENT_FIELDS } from "./SchoolDetail";
@@ -107,6 +109,7 @@ export function StudentDetail() {
   const [selectedRecord, setSelectedRecord] = useState<Entity | null>(null);
   const [referralOpen, setReferralOpen] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
+  const [reportOpen, setReportOpen] = useState(false);
   const nav = useNavigate();
   const toast = useToast();
 
@@ -139,6 +142,9 @@ export function StudentDetail() {
       <PageHeader title={String(student.full_name)}>
         <button className="btn-secondary" onClick={() => nav(`/escolas/${student.school_id}`)}>
           ← Escola
+        </button>
+        <button className="btn-secondary" onClick={() => setReportOpen(true)}>
+          Relatório por período
         </button>
         <button className="btn-secondary" onClick={() => setExportOpen(true)}>
           Exportar histórico
@@ -279,6 +285,18 @@ export function StudentDetail() {
           targetKind="students"
           targetId={id}
           sections={historySections}
+        />
+      )}
+
+      {reportOpen && (
+        <ReportDialog
+          open
+          onClose={() => setReportOpen(false)}
+          title={`Relatório — ${String(student.full_name)}`}
+          exportType="relatorio_aluno"
+          targetKind="students"
+          targetId={id}
+          build={(from, to) => relatorioAluno(student, records, from, to)}
         />
       )}
     </div>

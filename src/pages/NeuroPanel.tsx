@@ -4,7 +4,7 @@ import { formatDateBR } from "@/lib/format";
 import { NEURO_SESSION_FIELDS } from "@/lib/entryFields";
 import { NEURO_STAGES } from "@/lib/options";
 import { FormBuilder, type FieldDef } from "@/components/FormBuilder";
-import { EmptyState, Modal, PasswordConfirm, useToast } from "@/components/ui";
+import { ConfirmDialog, EmptyState, Modal, useToast } from "@/components/ui";
 import { useSession } from "@/store/session";
 
 const SESSION_FIELDS: FieldDef[] = [
@@ -144,7 +144,7 @@ function RestrictedArchive(props: {
           </button>
         ) : (
           <button className="btn-primary !py-1 text-sm" onClick={() => setAskPw(true)}>
-            Desbloquear (confirmar senha)
+            Abrir área restrita
           </button>
         )}
       </div>
@@ -155,7 +155,7 @@ function RestrictedArchive(props: {
       </p>
 
       {!props.unlocked ? (
-        <p className="text-base-700">Conteúdo oculto. Confirme sua senha para acessar.</p>
+        <p className="text-base-700">Conteúdo oculto. Clique em “Abrir área restrita” para acessar.</p>
       ) : (
         <>
           <button className="btn-secondary !py-1 text-sm" onClick={() => setFormOpen(true)}>
@@ -184,16 +184,17 @@ function RestrictedArchive(props: {
         </>
       )}
 
-      <PasswordConfirm
+      <ConfirmDialog
         open={askPw}
         onClose={() => setAskPw(false)}
         title="Acessar área restrita"
-        message="Confirme sua senha-mestra para acessar o Arquivo Neuropsicológico Restrito. O acesso é registrado na auditoria e expira automaticamente."
-        onConfirm={async (pw) => {
+        message="Este material é de acesso restrito e separado do prontuário geral. O acesso é registrado na auditoria e expira automaticamente. Deseja abrir?"
+        confirmLabel="Abrir área restrita"
+        onConfirm={async () => {
           try {
-            await api.restrictedUnlock(pw);
+            await api.restrictedUnlock();
             await props.onUnlockChange();
-            toast("ok", "Área restrita desbloqueada.");
+            toast("ok", "Área restrita liberada.");
           } catch (e) {
             toast("error", String(e));
           }

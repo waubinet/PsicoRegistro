@@ -13,6 +13,15 @@ if (-not (Get-Command cargo -ErrorAction SilentlyContinue)) {
   throw "cargo não encontrado no PATH. Instale o Rust (https://rustup.rs)."
 }
 
+# Chave de assinatura do atualizador (necessária porque createUpdaterArtifacts=true).
+$keyPath = Join-Path $env:USERPROFILE ".tauri\psicoregistro_updater.key"
+if (Test-Path $keyPath) {
+  $env:TAURI_SIGNING_PRIVATE_KEY = (Get-Content $keyPath -Raw)
+  $env:TAURI_SIGNING_PRIVATE_KEY_PASSWORD = ""
+} else {
+  Write-Warning "Chave de assinatura não encontrada em $keyPath — o build pode falhar ao gerar artefatos de atualização."
+}
+
 function Show-Bundles($subdir) {
   $bundle = Join-Path (Get-Location) "src-tauri\target\$subdir\bundle"
   Write-Host "Instaladores gerados em:" -ForegroundColor Green

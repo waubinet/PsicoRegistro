@@ -99,9 +99,13 @@ pub fn list(
             Ok(row_to_json(t, key, r))
         })
         .map_err(|_| "Erro na consulta.")?;
+    // Uma linha que não decifra (ex.: gravada com uma chave anterior) é ignorada,
+    // para não inviabilizar a listagem inteira.
     let mut out = Vec::new();
-    for r in rows {
-        out.push(r.map_err(|_| "Erro na consulta.")??);
+    for r in rows.flatten() {
+        if let Ok(v) = r {
+            out.push(v);
+        }
     }
     Ok(out)
 }
@@ -392,6 +396,19 @@ mod tests {
             .unwrap_err();
         assert!(err.contains("inválida"));
         assert!(list(&c, &key, "nao_existe", &[], false).is_err());
+    }
+
+    #[test]
+    fn rows_from_another_key_are_skipped_not_fatal() {
+        let (c, key) = setup();
+        create(&c, &key, "patients", &json!({"full_name": "Legível"}), false).unwrap();
+        // registro gravado com outra chave (ex.: chave anterior do app)
+        let other: [u8; 32] = crypto::random_bytes(32).try_into().unwrap();
+        create(&c, &other, "patients", &json!({"full_name": "Ilegível"}), false).unwrap();
+
+        let rows = list(&c, &key, "patients", &[], false).unwrap();
+        assert_eq!(rows.len(), 1, "a linha ilegível deve ser ignorada, não quebrar a lista");
+        assert_eq!(rows[0]["full_name"], "Legível");
     }
 
     #[test]

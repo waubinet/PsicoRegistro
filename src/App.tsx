@@ -2,7 +2,6 @@ import { useEffect } from "react";
 import { HashRouter, Route, Routes } from "react-router-dom";
 import { Layout } from "./components/Layout";
 import { Loading, ToastProvider } from "./components/ui";
-import { Unlock } from "./pages/Unlock";
 import { Dashboard } from "./pages/Dashboard";
 import { PatientsList } from "./pages/PatientsList";
 import { PatientDetail } from "./pages/PatientDetail";
@@ -21,7 +20,7 @@ import { SettingsPage } from "./pages/SettingsPage";
 import { useSession } from "./store/session";
 
 export function App() {
-  const { loading, unlocked, refresh } = useSession();
+  const { loading, refresh } = useSession();
 
   useEffect(() => {
     void refresh();
@@ -32,14 +31,6 @@ export function App() {
       <div className="flex min-h-screen items-center justify-center bg-base-100">
         <Loading />
       </div>
-    );
-  }
-
-  if (!unlocked) {
-    return (
-      <ToastProvider>
-        <Unlock />
-      </ToastProvider>
     );
   }
 

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import { formatDateTimeBR } from "@/lib/format";
-import { EmptyState, Loading, PageHeader, PasswordConfirm, useToast } from "@/components/ui";
+import { ConfirmDialog, EmptyState, Loading, PageHeader, useToast } from "@/components/ui";
 
 const ENTITY_LABELS: Record<string, string> = {
   patients: "Paciente",
@@ -80,15 +80,17 @@ export function TrashPage() {
         </div>
       )}
 
-      <PasswordConfirm
+      <ConfirmDialog
         open={purgeTarget !== null}
         onClose={() => setPurgeTarget(null)}
         title="Exclusão definitiva"
-        message="Esta ação é irreversível. Confirme sua senha-mestra para excluir definitivamente este registro."
-        onConfirm={async (pw) => {
+        message="Esta ação é irreversível: o registro será apagado do banco e não poderá ser recuperado. Deseja continuar?"
+        confirmLabel="Excluir definitivamente"
+        danger
+        onConfirm={async () => {
           if (!purgeTarget) return;
           try {
-            await api.purge(purgeTarget.kind, purgeTarget.id, pw);
+            await api.purge(purgeTarget.kind, purgeTarget.id);
             toast("ok", "Registro excluído definitivamente.");
             load();
           } catch (e) {

@@ -19,6 +19,40 @@ pub struct UserRow {
     pub locked_until: Option<String>,
 }
 
+/// Modo sem senha: obtém (ou cria na primeira execução) a chave-mestra guardada
+/// localmente em `app_settings`. A aplicação abre direto, sem tela de senha.
+///
+/// Os dados seguem cifrados em disco, mas a chave acompanha a máquina — quem
+/// tiver acesso aos arquivos consegue lê-los. As funções de senha abaixo
+/// permanecem no código caso se queira reativar a proteção.
+pub fn local_key(conn: &Connection) -> Result<[u8; 32], String> {
+    use base64::Engine;
+    let enc = base64::engine::general_purpose::STANDARD;
+
+    if let Ok(b64) = conn.query_row(
+        "SELECT value FROM app_settings WHERE key = 'master_key'",
+        [],
+        |r| r.get::<_, String>(0),
+    ) {
+        if let Ok(bytes) = enc.decode(b64) {
+            if let Ok(k) = <[u8; 32]>::try_from(bytes.as_slice()) {
+                return Ok(k);
+            }
+        }
+    }
+
+    let key: [u8; 32] = crypto::random_bytes(32)
+        .try_into()
+        .map_err(|_| "Falha ao gerar chave.".to_string())?;
+    conn.execute(
+        "INSERT INTO app_settings (key, value, updated_at) VALUES ('master_key', ?1, ?2)
+         ON CONFLICT(key) DO UPDATE SET value = ?1, updated_at = ?2",
+        params![enc.encode(key), now_iso()],
+    )
+    .map_err(|_| "Erro ao salvar a chave local.".to_string())?;
+    Ok(key)
+}
+
 pub fn get_user(conn: &Connection) -> Result<Option<UserRow>, String> {
     conn.query_row(
         "SELECT id, password_phc, kdf_salt, wrapped_key, failed_attempts, locked_until FROM users LIMIT 1",

@@ -1,6 +1,8 @@
 # PRIVACY.md — PsicoRegistro
 
-O PsicoRegistro é **local-first**: seus dados ficam apenas no seu computador. Não há servidor, nuvem, telemetria, rastreamento, publicidade ou analytics.
+O PsicoRegistro é **local-first**: seus dados ficam apenas no seu computador. Não há servidor, nuvem, telemetria, rastreamento, publicidade ou analytics. A única conexão de rede é o verificador de atualizações, que baixa binários assinados e **não envia dado algum**.
+
+> ⚠ **Sem senha no aplicativo.** Por opção do usuário, esta versão abre sem senha e guarda a chave de criptografia junto com os dados. Quem tiver acesso ao computador ou aos arquivos acessa os registros. O dever de guarda e sigilo (Resolução CFP nº 01/2009 e LGPD) depende, aqui, de medidas externas: senha da conta Windows, criptografia de disco (BitLocker), controle de acesso físico e cuidado com os backups. Ver [SECURITY.md](SECURITY.md).
 
 ## Princípios adotados (LGPD e ética profissional)
 

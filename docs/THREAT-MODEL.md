@@ -1,5 +1,7 @@
 # Modelo de ameaças — PsicoRegistro
 
+> ⚠ **Configuração atual: sem senha.** A chave de criptografia fica guardada junto com os dados. Logo, **todo cenário que envolva acesso aos arquivos resulta em leitura completa dos registros**. As mitigações abaixo marcadas com † deixam de valer neste modo. A proteção efetiva passa a ser o controle de acesso do sistema operacional e a criptografia de disco (BitLocker). Ver [SECURITY.md](../SECURITY.md).
+
 ## Ativos protegidos
 - Dados clínicos (evoluções, hipóteses, avaliação de risco).
 - Dados escolares e de menores.
@@ -17,10 +19,9 @@
 
 | Ameaça | Vetor | Mitigação |
 |---|---|---|
-| Leitura do banco roubado | cópia de `psicoregistro.db` | campos sensíveis cifrados (XChaCha20-Poly1305); chave derivada da senha (Argon2id) |
-| Leitura de anexos roubados | cópia de `attachments/*.bin` | arquivos cifrados; hash de integridade |
-| Backup interceptado | cópia do `.prbk` | carga cifrada; sem a senha, não abre |
-| Força bruta da senha | tentativas repetidas | Argon2id (custo alto) + lockout progressivo |
+| Leitura do banco roubado | cópia de `psicoregistro.db` | † cifrado, mas a chave está no próprio banco → **não mitigado** |
+| Leitura de anexos roubados | cópia de `attachments/*.bin` | † cifrado, mas a chave está no banco → **não mitigado** |
+| Backup interceptado | cópia do `.prbk` | † a chave viaja no cabeçalho → **não mitigado** |
 | Adulteração de dados/anexos/backup | edição do arquivo | AEAD (Poly1305) detecta; BLAKE3 confere integridade |
 | Injeção SQL | entrada maliciosa | queries parametrizadas + allowlist de colunas/tabelas |
 | Vazamento por logs | auditoria/erros | auditoria só com metadados; erros sem dados sensíveis |

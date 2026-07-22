@@ -4,6 +4,13 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/). Versio
 
 ## [0.1.0] — 2026-07-21
 
+### Alterado (decisão do usuário)
+- **Senha-mestra removida**: o aplicativo abre direto, sem tela de desbloqueio, sem bloqueio por inatividade e sem senha na área restrita, na exclusão definitiva ou na restauração de backup. A chave é gerada na primeira execução e guardada localmente. Os dados seguem cifrados, mas a chave acompanha a máquina — ver [SECURITY.md](SECURITY.md). O mecanismo de senha permanece no código, desativado.
+- Ícone redesenhado (Ψ sobre gradiente teal).
+- Corrigida a janela de console que abria junto com o aplicativo (`windows_subsystem` agora se aplica também em builds de desenvolvimento).
+- Registros que não decifram passam a ser ignorados na listagem, em vez de inviabilizar a consulta inteira.
+- Importação de lista nominal de alunos, relatórios por período (bimestral/semestral/anual/individual), ocorrência de visita com modelo das anteriores, e atualização automática via GitHub.
+
 ### Adicionado
 - Autenticação local com senha-mestra (Argon2id) e lockout progressivo.
 - Criptografia autenticada (XChaCha20-Poly1305) de campos sensíveis, anexos e backups, com chave derivada da senha via envelope.

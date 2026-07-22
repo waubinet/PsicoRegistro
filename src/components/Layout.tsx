@@ -1,6 +1,5 @@
-import { useEffect, useRef, useState } from "react";
-import { NavLink, Outlet, useNavigate } from "react-router-dom";
-import { useSession } from "@/store/session";
+import { useState } from "react";
+import { NavLink, Outlet } from "react-router-dom";
 
 const NAV = [
   { to: "/", label: "Painel", exact: true },
@@ -17,30 +16,7 @@ const NAV = [
 ];
 
 export function Layout() {
-  const { lock, autolockMinutes } = useSession();
   const [collapsed, setCollapsed] = useState(false);
-  const navigate = useNavigate();
-  const timer = useRef<number | null>(null);
-
-  // Bloqueio automático por inatividade.
-  useEffect(() => {
-    const reset = () => {
-      if (timer.current) window.clearTimeout(timer.current);
-      timer.current = window.setTimeout(
-        () => {
-          void lock();
-        },
-        Math.max(1, autolockMinutes) * 60_000,
-      );
-    };
-    const events = ["mousemove", "keydown", "mousedown", "wheel", "touchstart"];
-    events.forEach((e) => window.addEventListener(e, reset));
-    reset();
-    return () => {
-      events.forEach((e) => window.removeEventListener(e, reset));
-      if (timer.current) window.clearTimeout(timer.current);
-    };
-  }, [lock, autolockMinutes]);
 
   return (
     <div className="flex min-h-screen">
@@ -76,14 +52,6 @@ export function Layout() {
                 {n.label}
               </NavLink>
             ))}
-            <button
-              className="mt-4 block w-full px-4 py-2.5 text-left text-base-800 hover:bg-base-200"
-              onClick={() => {
-                void lock().then(() => navigate("/"));
-              }}
-            >
-              🔒 Bloquear agora
-            </button>
           </nav>
         )}
       </aside>

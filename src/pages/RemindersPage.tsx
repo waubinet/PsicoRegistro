@@ -4,6 +4,7 @@ import { daysSince, formatDateBR } from "@/lib/format";
 import { labelOf, PRIORITIES, REMINDER_STATUS, REMINDER_TYPES } from "@/lib/options";
 import { useEntities } from "@/lib/useEntities";
 import { FormBuilder, type FieldDef } from "@/components/FormBuilder";
+import { ExportDialog } from "@/components/ExportDialog";
 import { EmptyState, Loading, Modal, PageHeader, useToast } from "@/components/ui";
 
 const FIELDS: FieldDef[] = [
@@ -18,6 +19,7 @@ const FIELDS: FieldDef[] = [
 export function RemindersPage() {
   const { items, loading, reload } = useEntities("reminders");
   const [open, setOpen] = useState(false);
+  const [exportOpen, setExportOpen] = useState(false);
   const toast = useToast();
 
   if (loading) return <Loading />;
@@ -29,10 +31,32 @@ export function RemindersPage() {
   return (
     <div>
       <PageHeader title="Agenda e pendências">
+        <button className="btn-secondary" onClick={() => setExportOpen(true)}>
+          Exportar lista
+        </button>
         <button className="btn-primary" onClick={() => setOpen(true)}>
           + Nova pendência
         </button>
       </PageHeader>
+
+      {exportOpen && (
+        <ExportDialog
+          open
+          onClose={() => setExportOpen(false)}
+          title="Lista de pendências"
+          exportType="lista_pendencias"
+          targetKind="reminders"
+          sections={[
+            {
+              title: "Pendências em aberto",
+              fields: pending.map((r) => ({
+                label: `${formatDateBR(r.due_date as string)} — ${labelOf(REMINDER_TYPES, r.reminder_type)}`,
+                value: `${String(r.title)} (${labelOf(PRIORITIES, r.priority)})`,
+              })),
+            },
+          ]}
+        />
+      )}
 
       <h2 className="mb-2 text-lg font-semibold">Pendentes</h2>
       {pending.length === 0 ? (

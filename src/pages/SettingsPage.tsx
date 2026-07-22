@@ -13,16 +13,18 @@ const PROFILE_FIELDS: FieldDef[] = [
 ];
 
 export function SettingsPage() {
-  const { theme, fontScale, autolockMinutes, setTheme, setFontScale, setAutolockMinutes } =
-    useSession();
+  const { theme, fontScale, setTheme, setFontScale } = useSession();
   const [profile, setProfile] = useState<Record<string, unknown> | null>(null);
-  const [oldPw, setOldPw] = useState("");
-  const [newPw, setNewPw] = useState("");
+  const [backupDays, setBackupDays] = useState(7);
   const [confirmClear, setConfirmClear] = useState(false);
   const toast = useToast();
 
   useEffect(() => {
     api.list("professional_profiles").then((rows) => setProfile(rows[0] ?? null)).catch(() => undefined);
+    api
+      .settingsGet()
+      .then((cfg) => setBackupDays(Number(cfg.backup_reminder_days) || 7))
+      .catch(() => undefined);
   }, []);
 
   return (
@@ -49,14 +51,18 @@ export function SettingsPage() {
             </select>
           </div>
           <div>
-            <label className="label">Bloqueio automático (min)</label>
+            <label className="label">Lembrete de backup (dias)</label>
             <input
               type="number"
               min={1}
-              max={120}
+              max={365}
               className="input"
-              value={autolockMinutes}
-              onChange={(e) => setAutolockMinutes(Math.max(1, Number(e.target.value)))}
+              value={backupDays}
+              onChange={(e) => {
+                const v = Math.max(1, Number(e.target.value));
+                setBackupDays(v);
+                void api.settingsSet("backup_reminder_days", String(v)).catch(() => undefined);
+              }}
             />
           </div>
         </div>
@@ -77,42 +83,6 @@ export function SettingsPage() {
             toast("ok", "Cabeçalho salvo.");
           }}
         />
-      </section>
-
-      <section className="card mb-4">
-        <h2 className="mb-3 font-semibold">Trocar senha-mestra</h2>
-        <div className="grid gap-3 md:grid-cols-2">
-          <input
-            type="password"
-            className="input"
-            placeholder="Senha atual"
-            value={oldPw}
-            onChange={(e) => setOldPw(e.target.value)}
-          />
-          <input
-            type="password"
-            className="input"
-            placeholder="Nova senha (mín. 8)"
-            value={newPw}
-            onChange={(e) => setNewPw(e.target.value)}
-          />
-        </div>
-        <button
-          className="btn-primary mt-3"
-          disabled={!oldPw || newPw.length < 8}
-          onClick={async () => {
-            try {
-              await api.changePassword(oldPw, newPw);
-              toast("ok", "Senha alterada com sucesso.");
-              setOldPw("");
-              setNewPw("");
-            } catch (e) {
-              toast("error", String(e));
-            }
-          }}
-        >
-          Alterar senha
-        </button>
       </section>
 
       <section className="card mb-4">

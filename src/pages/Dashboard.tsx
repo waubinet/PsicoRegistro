@@ -16,14 +16,19 @@ function Stat(props: { label: string; value: number | string; to?: string; warn?
 
 export function Dashboard() {
   const [d, setD] = useState<Record<string, unknown> | null>(null);
+  const [backupDays, setBackupDays] = useState(7);
 
   useEffect(() => {
     api.dashboard().then(setD).catch(() => undefined);
+    api
+      .settingsGet()
+      .then((cfg) => setBackupDays(Number(cfg.backup_reminder_days) || 7))
+      .catch(() => undefined);
   }, []);
 
   const n = (k: string) => Number(d?.[k] ?? 0);
   const lastBackup = d?.last_backup_at as string | undefined;
-  const backupDays = daysSince(lastBackup);
+  const sinceBackup = daysSince(lastBackup);
 
   return (
     <div>
@@ -53,9 +58,14 @@ export function Dashboard() {
       <div className="mt-6 card">
         <h2 className="mb-2 font-semibold">Backup</h2>
         {lastBackup ? (
-          <p className={backupDays != null && backupDays > 7 ? "text-amber-700" : "text-base-700"}>
+          <p
+            className={
+              sinceBackup != null && sinceBackup > backupDays ? "text-amber-700" : "text-base-700"
+            }
+          >
             Último backup: {formatDateTimeBR(lastBackup)}
-            {backupDays != null && ` (há ${backupDays} dia(s))`}
+            {sinceBackup != null && ` (há ${sinceBackup} dia(s))`}
+            {sinceBackup != null && sinceBackup > backupDays && " — recomendamos fazer um novo."}
           </p>
         ) : (
           <p className="text-amber-700">

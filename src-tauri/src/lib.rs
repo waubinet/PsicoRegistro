@@ -50,53 +50,15 @@ fn app_status(st: State<'_, AppState>) -> Cmd<Value> {
     }))
 }
 
+/// Libera a área neuropsicológica restrita (sem senha; apenas confirmação na UI).
+/// O acesso continua sendo registrado na auditoria e expira automaticamente.
 #[tauri::command]
-fn setup_password(st: State<'_, AppState>, password: String) -> Cmd<()> {
+fn restricted_unlock(st: State<'_, AppState>) -> Cmd<()> {
     let mut inner = st.inner.lock().map_err(|_| "Erro interno.")?;
-    let conn = inner.require_conn()?;
-    let key = auth::create_user(conn, &password)?;
-    audit::log(conn, "setup", "users", None, None);
-    inner.key = Some(key);
-    Ok(())
-}
-
-#[tauri::command]
-fn unlock(st: State<'_, AppState>, password: String) -> Cmd<()> {
-    let mut inner = st.inner.lock().map_err(|_| "Erro interno.")?;
-    let conn = inner.require_conn()?;
-    let key = auth::unlock(conn, &password)?;
-    audit::log(conn, "unlock", "session", None, None);
-    inner.key = Some(key);
-    Ok(())
-}
-
-#[tauri::command]
-fn lock(st: State<'_, AppState>) -> Cmd<()> {
-    let mut inner = st.inner.lock().map_err(|_| "Erro interno.")?;
-    if let Some(c) = inner.conn.as_ref() {
-        audit::log(c, "lock", "session", None, None);
+    {
+        let conn = inner.require_conn()?;
+        audit::log(conn, "restricted_access", "restricted_neuropsych_records", None, None);
     }
-    inner.lock_session();
-    Ok(())
-}
-
-#[tauri::command]
-fn change_password(st: State<'_, AppState>, old: String, new: String) -> Cmd<()> {
-    let inner = st.inner.lock().map_err(|_| "Erro interno.")?;
-    let conn = inner.require_conn()?;
-    auth::change_password(conn, &old, &new)?;
-    audit::log(conn, "password_change", "users", None, None);
-    Ok(())
-}
-
-#[tauri::command]
-fn restricted_unlock(st: State<'_, AppState>, password: String) -> Cmd<()> {
-    let mut inner = st.inner.lock().map_err(|_| "Erro interno.")?;
-    let conn = inner.require_conn()?;
-    if !auth::verify_only(conn, &password)? {
-        return Err("Senha incorreta.".into());
-    }
-    audit::log(conn, "restricted_access", "restricted_neuropsych_records", None, None);
     inner.restricted_until = Some(Instant::now() + Duration::from_secs(600));
     Ok(())
 }
@@ -172,16 +134,8 @@ fn entity_restore(st: State<'_, AppState>, table: String, id: String) -> Cmd<()>
 }
 
 #[tauri::command]
-fn entity_purge(st: State<'_, AppState>, table: String, id: String, password: String) -> Cmd<()> {
-    with_open(&st, |conn, _key, _| {
-        if !auth::verify_only(conn, &password)? {
-            return Err("Senha incorreta.".into());
-        }
-        if table == "attachments" {
-            // remoção do blob em disco tratada abaixo (fora do with_open não temos dir)
-        }
-        entities::purge(conn, &table, &id)
-    })?;
+fn entity_purge(st: State<'_, AppState>, table: String, id: String) -> Cmd<()> {
+    with_open(&st, |conn, _key, _| entities::purge(conn, &table, &id))?;
     if table == "attachments" {
         attachments::remove_file(&st.attachments_dir(), &id);
     }
@@ -404,28 +358,21 @@ fn backup_create(st: State<'_, AppState>, dest_path: String) -> Cmd<()> {
 }
 
 #[tauri::command]
-fn backup_restore(st: State<'_, AppState>, src_path: String, password: String) -> Cmd<()> {
+fn backup_restore(st: State<'_, AppState>, src_path: String) -> Cmd<()> {
     let mut inner = st.inner.lock().map_err(|_| "Erro interno.")?;
     // fecha conexão atual antes de trocar o arquivo
     inner.conn = None;
     inner.lock_session();
-    let res = backup::restore(
-        &st.data_dir,
-        &st.db_path(),
-        &st.attachments_dir(),
-        &src_path,
-        &password,
-    );
-    // reabre banco (restaurado ou original)
+    let res = backup::restore(&st.data_dir, &st.db_path(), &st.attachments_dir(), &src_path);
+    // reabre banco (restaurado ou original) e recarrega a chave local
     let conn = db::open(&st.db_path()).map_err(|_| "Erro ao reabrir banco.")?;
     db::migrate(&conn).map_err(|_| "Erro ao migrar banco.")?;
     if res.is_ok() {
         audit::log(&conn, "backup_restore", "backup", None, None);
-        if let Ok(key) = auth::unlock(&conn, &password) {
-            inner.key = Some(key);
-        }
     }
+    let key = auth::local_key(&conn)?;
     inner.conn = Some(conn);
+    inner.key = Some(key);
     res
 }
 
@@ -503,16 +450,18 @@ pub fn run() {
             let st = AppState::new(data_dir);
             let conn = db::open(&st.db_path()).expect("falha ao abrir banco");
             db::migrate(&conn).expect("falha ao migrar banco");
-            st.inner.lock().unwrap().conn = Some(conn);
+            // Modo sem senha: chave local carregada (ou criada) na inicialização.
+            let key = auth::local_key(&conn).expect("falha ao obter a chave local");
+            {
+                let mut inner = st.inner.lock().unwrap();
+                inner.conn = Some(conn);
+                inner.key = Some(key);
+            }
             app.manage(st);
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
             app_status,
-            setup_password,
-            unlock,
-            lock,
-            change_password,
             restricted_unlock,
             restricted_lock,
             entity_list,

@@ -8,16 +8,15 @@ export type Entity = Record<string, unknown> & {
   is_demo?: boolean;
 };
 
-export type AppStatus = { initialized: boolean; unlocked: boolean; restricted: boolean };
+export type AppStatus = {
+  initialized: boolean;
+  unlocked: boolean;
+  restricted: boolean;
+};
 
 export const api = {
   status: () => invoke<AppStatus>("app_status"),
-  setupPassword: (password: string) => invoke<void>("setup_password", { password }),
-  unlock: (password: string) => invoke<void>("unlock", { password }),
-  lock: () => invoke<void>("lock"),
-  changePassword: (old: string, newPassword: string) =>
-    invoke<void>("change_password", { old, new: newPassword }),
-  restrictedUnlock: (password: string) => invoke<void>("restricted_unlock", { password }),
+  restrictedUnlock: () => invoke<void>("restricted_unlock"),
   restrictedLock: () => invoke<void>("restricted_lock"),
 
   list: (table: string, filters?: [string, string][], includeDeleted?: boolean) =>
@@ -29,8 +28,7 @@ export const api = {
     invoke<void>("entity_update", { table, id, data }),
   remove: (table: string, id: string) => invoke<void>("entity_delete", { table, id }),
   restore: (table: string, id: string) => invoke<void>("entity_restore", { table, id }),
-  purge: (table: string, id: string, password: string) =>
-    invoke<void>("entity_purge", { table, id, password }),
+  purge: (table: string, id: string) => invoke<void>("entity_purge", { table, id }),
   finalize: (table: string, id: string) => invoke<void>("finalize_entry", { table, id }),
   addAddendum: (entryId: string, reason: string, content: string) =>
     invoke<string>("add_addendum", { entryId, reason, content }),
@@ -50,8 +48,7 @@ export const api = {
     invoke<{ name: string; mime: string; base64: string }>("attachment_preview", { id }),
 
   backupCreate: (destPath: string) => invoke<void>("backup_create", { destPath }),
-  backupRestore: (srcPath: string, password: string) =>
-    invoke<void>("backup_restore", { srcPath, password }),
+  backupRestore: (srcPath: string) => invoke<void>("backup_restore", { srcPath }),
   exportLog: (exportType: string, targetKind: string, targetId?: string) =>
     invoke<void>("export_log", { exportType, targetKind, targetId }),
   auditList: (limit?: number, offset?: number, eventType?: string) =>

@@ -2,8 +2,17 @@ import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { api, type Entity } from "@/lib/api";
 import { ageFrom, formatDateBR } from "@/lib/format";
-import { CASE_STATUS, CASE_TYPES, labelOf, MODALITIES, PATIENT_STATUS } from "@/lib/options";
+import {
+  CASE_STATUS,
+  CASE_TYPES,
+  ENTRY_STATUS,
+  labelOf,
+  MODALITIES,
+  PATIENT_STATUS,
+} from "@/lib/options";
 import { FormBuilder, type FieldDef } from "@/components/FormBuilder";
+import { ExportDialog } from "@/components/ExportDialog";
+import { Timeline } from "@/components/Timeline";
 import { ConfirmDialog, EmptyState, Loading, Modal, PageHeader, useToast } from "@/components/ui";
 import { PATIENT_FIELDS } from "./PatientsList";
 
@@ -34,17 +43,29 @@ export function PatientDetail() {
   const [patient, setPatient] = useState<Entity | null>(null);
   const [guardians, setGuardians] = useState<Entity[]>([]);
   const [cases, setCases] = useState<Entity[]>([]);
+  const [entries, setEntries] = useState<Entity[]>([]);
   const [editOpen, setEditOpen] = useState(false);
   const [guardianOpen, setGuardianOpen] = useState(false);
   const [caseOpen, setCaseOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [exportOpen, setExportOpen] = useState(false);
   const nav = useNavigate();
   const toast = useToast();
 
   const load = useCallback(() => {
     api.get("patients", id).then(setPatient).catch(() => setPatient(null));
     api.list("patient_guardians", [["patient_id", id]]).then(setGuardians).catch(() => undefined);
-    api.list("clinical_cases", [["patient_id", id]]).then(setCases).catch(() => undefined);
+    api
+      .list("clinical_cases", [["patient_id", id]])
+      .then(async (cs) => {
+        setCases(cs);
+        // linha do tempo unificada do paciente: evoluções de todos os casos
+        const all = await Promise.all(
+          cs.map((c) => api.list("clinical_entries", [["case_id", c.id]]).catch(() => [])),
+        );
+        setEntries(all.flat());
+      })
+      .catch(() => undefined);
   }, [id]);
 
   useEffect(load, [load]);
@@ -67,6 +88,9 @@ export function PatientDetail() {
   return (
     <div>
       <PageHeader title={String(patient.full_name)}>
+        <button className="btn-secondary" onClick={() => setExportOpen(true)}>
+          Resumo administrativo
+        </button>
         <button className="btn-secondary" onClick={() => setEditOpen(true)}>
           Editar
         </button>
@@ -154,6 +178,66 @@ export function PatientDetail() {
           </div>
         )}
       </section>
+
+      <section className="mt-6">
+        <h2 className="mb-2 text-xl font-semibold">Linha do tempo do paciente</h2>
+        <Timeline
+          items={entries.map((e) => {
+            const c = cases.find((x) => x.id === e.case_id);
+            return {
+              id: e.id,
+              date: String(e.entry_date ?? e.created_at),
+              type: labelOf(CASE_TYPES, c?.case_type),
+              status: labelOf(ENTRY_STATUS, e.status),
+              author: e.author as string,
+              hasReferral: Boolean(e.referrals),
+              hasAddendum: e.status === "corrigido",
+              onOpen: () => e.case_id && nav(`/casos/${e.case_id}`),
+            };
+          })}
+        />
+      </section>
+
+      {exportOpen && (
+        <ExportDialog
+          open
+          onClose={() => setExportOpen(false)}
+          title="Resumo administrativo do paciente"
+          exportType="resumo_administrativo"
+          targetKind="patients"
+          targetId={id}
+          sections={[
+            {
+              title: "Identificação",
+              fields: [
+                { label: "Nome", value: String(patient.full_name ?? "") },
+                { label: "Nascimento", value: formatDateBR(patient.birth_date as string) },
+                { label: "Idade", value: age != null ? `${age} anos` : "" },
+                { label: "Telefone", value: String(patient.phone ?? "") },
+                { label: "E-mail", value: String(patient.email ?? "") },
+                { label: "Situação", value: labelOf(PATIENT_STATUS, patient.status) },
+              ],
+            },
+            {
+              title: "Processos / casos",
+              fields: cases.map((c) => ({
+                label: labelOf(CASE_TYPES, c.case_type),
+                value: `${labelOf(CASE_STATUS, c.status)} — início ${formatDateBR(c.start_date as string)}`,
+              })),
+            },
+            {
+              title: "Volume de registros",
+              fields: [
+                { label: "Total de evoluções", value: String(entries.length) },
+                {
+                  label: "Finalizadas",
+                  value: String(entries.filter((e) => e.status !== "rascunho").length),
+                },
+              ],
+            },
+          ]}
+        />
+      )}
 
       <Modal open={editOpen} onClose={() => setEditOpen(false)} title="Editar paciente" wide>
         <FormBuilder
