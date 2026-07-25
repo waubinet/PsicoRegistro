@@ -4,11 +4,16 @@ import { api } from "@/lib/api";
 import { formatDateBR } from "@/lib/format";
 import { EmptyState, PageHeader } from "@/components/ui";
 
-const ROUTE: Record<string, (id: string) => string> = {
+/** Rota do resultado. `parent` é usado quando o item vive dentro de outro. */
+const ROUTE: Record<string, (id: string, parent: string) => string> = {
   patients: (id) => `/pacientes/${id}`,
   students: (id) => `/estudantes/${id}`,
   schools: (id) => `/escolas/${id}`,
   clinical_cases: (id) => `/casos/${id}`,
+  clinical_entries: (_id, parent) => `/casos/${parent}`,
+  school_records: (_id, parent) => `/estudantes/${parent}`,
+  referrals: (_id, parent) => `/estudantes/${parent}`,
+  institutional_school_records: (_id, parent) => `/escolas/${parent}`,
   reminders: () => `/pendencias`,
 };
 
@@ -18,6 +23,10 @@ const KIND_OPTIONS = [
   { value: "students", label: "Estudantes" },
   { value: "schools", label: "Escolas" },
   { value: "clinical_cases", label: "Casos clínicos" },
+  { value: "clinical_entries", label: "Evoluções" },
+  { value: "school_records", label: "Registros escolares" },
+  { value: "institutional_school_records", label: "Ocorrências institucionais" },
+  { value: "referrals", label: "Encaminhamentos" },
   { value: "reminders", label: "Pendências" },
 ];
 
@@ -122,6 +131,7 @@ export function SearchPage() {
             <thead>
               <tr>
                 <th>Nome</th>
+                <th>Onde</th>
                 <th>Tipo</th>
                 <th>Situação</th>
                 <th>Data</th>
@@ -134,10 +144,11 @@ export function SearchPage() {
                   className="cursor-pointer"
                   onClick={() => {
                     const route = ROUTE[r.table];
-                    if (route) nav(route(r.id));
+                    if (route) nav(route(r.id, r.parent ?? ""));
                   }}
                 >
                   <td className="font-medium">{r.name}</td>
+                  <td className="text-base-700">{r.detail || "—"}</td>
                   <td>{r.kind}</td>
                   <td>{r.status ?? "—"}</td>
                   <td>{formatDateBR(r.date)}</td>

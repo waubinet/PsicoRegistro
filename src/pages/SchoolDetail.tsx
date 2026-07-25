@@ -12,9 +12,14 @@ import {
 import { FormBuilder, type FieldDef } from "@/components/FormBuilder";
 import { EmptyState, Loading, Modal, PageHeader, useToast } from "@/components/ui";
 import { ImportStudents } from "@/components/ImportStudents";
+import { ViradaAnoLetivo } from "@/components/ViradaAnoLetivo";
 import { ExportDialog } from "@/components/ExportDialog";
 import { ReportDialog } from "@/components/ReportDialog";
 import { Timeline } from "@/components/Timeline";
+import { aberturaOcorrencia, PERIODOS } from "@/lib/dateExtenso";
+import { gerarOcorrenciaPDF } from "@/lib/docOcorrencia";
+import { writeFile } from "@/components/exportFile";
+import { save as saveDialog } from "@tauri-apps/plugin-dialog";
 import { relatorioEscola, resumoEscola, situacaoAluno } from "@/lib/schoolReport";
 import { SCHOOL_FIELDS } from "./SchoolsList";
 
@@ -51,6 +56,19 @@ const STUDENT_FIELDS: FieldDef[] = [
   { name: "tags", label: "Marcadores (vírgula)" },
 ];
 
+/** Ocorrência de visita: documento narrativo (formato oficial usado na rede). */
+const OCORRENCIA_FIELDS: FieldDef[] = [
+  { name: "record_date", label: "Data da visita", type: "date", required: true },
+  { name: "period", label: "Período", type: "select", options: PERIODOS },
+  {
+    name: "narrative",
+    label: "Relato da visita",
+    type: "textarea",
+    colSpan: 2,
+    help: "Texto corrido, como no documento oficial. Use o botão acima para inserir a frase de abertura.",
+  },
+];
+
 const INSTITUTIONAL_FIELDS: FieldDef[] = [
   { name: "record_type", label: "Tipo", type: "select", options: INSTITUTIONAL_TYPES, required: true },
   { name: "record_date", label: "Data", type: "date", required: true },
@@ -70,6 +88,8 @@ const INSTITUTIONAL_FIELDS: FieldDef[] = [
 /** Campos copiados ao usar uma ocorrência anterior como base (a data é redefinida). */
 const TEMPLATE_FIELDS = [
   "record_type",
+  "period",
+  "narrative",
   "location",
   "audience",
   "participants",
@@ -111,6 +131,7 @@ export function SchoolDetail() {
   const [instEditing, setInstEditing] = useState<Entity | null>(null);
   const [instInitial, setInstInitial] = useState<Record<string, unknown>>({});
   const [importOpen, setImportOpen] = useState(false);
+  const [viradaOpen, setViradaOpen] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
   const [exportOcorrencia, setExportOcorrencia] = useState<Entity | null>(null);
   const nav = useNavigate();
@@ -136,6 +157,34 @@ export function SchoolDetail() {
   );
   const resumo = resumoEscola(students, records, reminders);
 
+  /** Ocorrência de visita sai no formato oficial (narrativo + assinaturas). */
+  async function gerarDocumentoOcorrencia(r: Entity) {
+    try {
+      const perfil = (await api.list("professional_profiles").catch(() => []))[0] as
+        | Record<string, unknown>
+        | undefined;
+      const data = String(r.record_date ?? "");
+      const dest = await saveDialog({
+        defaultPath: `OCORRENCIA DE VISITA - ${String(school?.name ?? "")} - ${data}.pdf`,
+        filters: [{ name: "PDF", extensions: ["pdf"] }],
+      });
+      if (!dest) return;
+      const bytes = gerarOcorrenciaPDF({
+        escola: String(school?.name ?? ""),
+        dataISO: data,
+        narrativa: String(r.narrative ?? ""),
+        cidade: String(perfil?.city ?? "Conceição do Araguaia"),
+        profissional: perfil?.name ? String(perfil.name) : undefined,
+        crp: perfil?.crp ? String(perfil.crp) : undefined,
+      });
+      await writeFile(dest, new Uint8Array(bytes));
+      await api.exportLog("ocorrencia_visita", "institutional_school_records", r.id);
+      toast("ok", "Documento gerado. Lembre-se: fora do app ele não está protegido.");
+    } catch (e) {
+      toast("error", `Falha ao gerar documento: ${String(e)}`);
+    }
+  }
+
   // Última ocorrência de visita desta escola — serve de modelo para a próxima.
   const lastOcorrencia =
     institutional
@@ -155,6 +204,9 @@ export function SchoolDetail() {
       <PageHeader title={String(school.name)}>
         <button className="btn-secondary" onClick={() => setImportOpen(true)}>
           Importar lista
+        </button>
+        <button className="btn-secondary" onClick={() => setViradaOpen(true)}>
+          Virada de ano
         </button>
         <button className="btn-secondary" onClick={() => setReportOpen(true)}>
           Relatório da escola
@@ -322,7 +374,10 @@ export function SchoolDetail() {
                     </button>
                     <button
                       className="btn-secondary !py-0.5 text-sm"
-                      onClick={() => setExportOcorrencia(r)}
+                      onClick={() => {
+                        if (r.record_type === "ocorrencia_visita") void gerarDocumentoOcorrencia(r);
+                        else setExportOcorrencia(r);
+                      }}
                     >
                       PDF
                     </button>
@@ -369,19 +424,50 @@ export function SchoolDetail() {
           title={instEditing ? "Editar ocorrência / registro" : "Nova ocorrência / registro"}
           wide
         >
+          {instInitial.record_type === "ocorrencia_visita" && (
+            <div className="mb-4 rounded-md border border-base-200 bg-base-100 p-3">
+              <p className="mb-2 text-sm text-base-700">
+                Documento narrativo. A abertura padrão pode ser inserida automaticamente:
+              </p>
+              <button
+                className="btn-secondary !py-1 text-sm"
+                onClick={() => {
+                  const abertura = aberturaOcorrencia(
+                    String(instInitial.record_date ?? new Date().toISOString().slice(0, 10)),
+                    String(instInitial.period ?? ""),
+                    String(school.name),
+                  );
+                  const atual = String(instInitial.narrative ?? "");
+                  setInstInitial({
+                    ...instInitial,
+                    narrative: atual.startsWith("No dia") ? atual : `${abertura}\n\n${atual}`.trim(),
+                  });
+                }}
+              >
+                Inserir frase de abertura
+              </button>
+            </div>
+          )}
           <FormBuilder
-            fields={INSTITUTIONAL_FIELDS}
+            key={JSON.stringify(instInitial.narrative ?? "")}
+            fields={
+              instInitial.record_type === "ocorrencia_visita"
+                ? OCORRENCIA_FIELDS
+                : INSTITUTIONAL_FIELDS
+            }
             initial={instInitial}
             onCancel={() => setInstOpen(false)}
             onSubmit={async (v) => {
+              // o tipo não aparece no formulário da ocorrência; preserva-o
+              const payload = { ...v, record_type: instInitial.record_type ?? v.record_type };
               if (instEditing) {
                 await api.update("institutional_school_records", instEditing.id, {
-                  ...v,
+                  ...payload,
                   school_id: id,
                 });
                 toast("ok", "Registro atualizado.");
               } else {
-                await api.create("institutional_school_records", { ...v, school_id: id });
+                await api.create("institutional_school_records", { ...payload, school_id: id });
                 toast("ok", "Ocorrência registrada.");
               }
               setInstOpen(false);
@@ -396,6 +482,14 @@ export function SchoolDetail() {
         onClose={() => setImportOpen(false)}
         schoolId={id}
         onImported={load}
+      />
+
+      <ViradaAnoLetivo
+        open={viradaOpen}
+        onClose={() => setViradaOpen(false)}
+        schoolId={id}
+        students={students}
+        onDone={load}
       />
 
       <section className="mt-6">
@@ -424,17 +518,17 @@ export function SchoolDetail() {
         />
       </section>
 
-      {exportOcorrencia && (
+      {exportOcorrencia && exportOcorrencia.record_type !== "ocorrencia_visita" && (
         <ExportDialog
           open
           onClose={() => setExportOcorrencia(null)}
           title={`${labelOf(INSTITUTIONAL_TYPES, exportOcorrencia.record_type)} — ${String(school.name)}`}
-          exportType="ocorrencia_visita"
+          exportType="registro_institucional"
           targetKind="institutional_school_records"
           targetId={exportOcorrencia.id}
           sections={[
             {
-              title: `Ocorrência de ${formatDateBR(exportOcorrencia.record_date as string)}`,
+              title: `Registro de ${formatDateBR(exportOcorrencia.record_date as string)}`,
               fields: INSTITUTIONAL_FIELDS.filter((f) => f.name !== "record_type").map((f) => ({
                 label: f.label,
                 value: String(exportOcorrencia[f.name] ?? ""),

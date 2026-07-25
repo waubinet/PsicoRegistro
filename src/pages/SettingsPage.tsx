@@ -10,6 +10,7 @@ const PROFILE_FIELDS: FieldDef[] = [
   { name: "crp", label: "CRP" },
   { name: "contact", label: "Contato profissional" },
   { name: "institution", label: "Instituição" },
+  { name: "city", label: "Cidade (rodapé dos documentos)" },
 ];
 
 export function SettingsPage() {

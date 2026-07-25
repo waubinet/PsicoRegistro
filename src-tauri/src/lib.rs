@@ -261,7 +261,15 @@ fn settings_get(st: State<'_, AppState>) -> Cmd<Value> {
 #[tauri::command]
 fn settings_set(st: State<'_, AppState>, key: String, value: String) -> Cmd<()> {
     let allowed = [
-        "theme", "font_scale", "backup_reminder_days", "last_backup_at", "autolock_minutes",
+        "theme",
+        "font_scale",
+        "backup_reminder_days",
+        "last_backup_at",
+        "autolock_minutes",
+        "auto_backup_dir",
+        "auto_backup_days",
+        "auto_backup_keep",
+        "auto_backup_last",
     ];
     if !allowed.contains(&key.as_str()) {
         return Err("Configuração desconhecida.".into());
@@ -354,6 +362,77 @@ fn backup_create(st: State<'_, AppState>, dest_path: String) -> Cmd<()> {
         )
         .ok();
         Ok(())
+    })
+}
+
+/// Backup automático: se estiver configurado e já tiver passado o intervalo,
+/// grava um `.prbk` na pasta escolhida e mantém apenas as N cópias mais recentes.
+#[tauri::command]
+fn backup_auto_run(st: State<'_, AppState>) -> Cmd<Option<String>> {
+    let dir = st.attachments_dir();
+    with_open(&st, |conn, key, _| {
+        let get = |k: &str| -> Option<String> {
+            conn.query_row(
+                "SELECT value FROM app_settings WHERE key = ?1",
+                [k],
+                |r| r.get::<_, String>(0),
+            )
+            .ok()
+        };
+        let Some(folder) = get("auto_backup_dir").filter(|s| !s.is_empty()) else {
+            return Ok(None);
+        };
+        let every_days: i64 = get("auto_backup_days").and_then(|v| v.parse().ok()).unwrap_or(1);
+        let keep: usize = get("auto_backup_keep").and_then(|v| v.parse().ok()).unwrap_or(10);
+
+        // já fez hoje (ou dentro do intervalo)?
+        if let Some(last) = get("auto_backup_last") {
+            if let Ok(t) = chrono::DateTime::parse_from_rfc3339(&last) {
+                let dias = (chrono::Utc::now() - t.with_timezone(&chrono::Utc)).num_days();
+                if dias < every_days.max(1) {
+                    return Ok(None);
+                }
+            }
+        }
+
+        let pasta = std::path::Path::new(&folder);
+        std::fs::create_dir_all(pasta).map_err(|_| "Pasta de backup indisponível.")?;
+        let nome = format!(
+            "psicoregistro-auto-{}.prbk",
+            chrono::Local::now().format("%Y%m%d-%H%M%S")
+        );
+        let destino = pasta.join(&nome);
+        let destino_str = destino.to_string_lossy().to_string();
+        backup::create(conn, key, &dir, &destino_str)?;
+
+        // rotação: mantém apenas as `keep` cópias automáticas mais recentes
+        if let Ok(rd) = std::fs::read_dir(pasta) {
+            let mut autos: Vec<_> = rd
+                .flatten()
+                .filter(|e| {
+                    e.file_name()
+                        .to_string_lossy()
+                        .starts_with("psicoregistro-auto-")
+                })
+                .collect();
+            autos.sort_by_key(|e| e.file_name());
+            while autos.len() > keep.max(1) {
+                let velho = autos.remove(0);
+                let _ = std::fs::remove_file(velho.path());
+            }
+        }
+
+        let agora = now_iso();
+        for (k, v) in [("auto_backup_last", &agora), ("last_backup_at", &agora)] {
+            conn.execute(
+                "INSERT INTO app_settings (key, value, updated_at) VALUES (?1, ?2, ?3)
+                 ON CONFLICT(key) DO UPDATE SET value = ?2, updated_at = ?3",
+                rusqlite::params![k, v, agora],
+            )
+            .ok();
+        }
+        audit::log(conn, "backup_auto", "backup", None, None);
+        Ok(Some(destino_str))
     })
 }
 
@@ -483,6 +562,7 @@ pub fn run() {
             attachment_preview,
             write_export_file,
             backup_create,
+            backup_auto_run,
             backup_restore,
             export_log,
             audit_list,

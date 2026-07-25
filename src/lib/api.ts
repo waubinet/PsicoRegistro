@@ -48,6 +48,7 @@ export const api = {
     invoke<{ name: string; mime: string; base64: string }>("attachment_preview", { id }),
 
   backupCreate: (destPath: string) => invoke<void>("backup_create", { destPath }),
+  backupAutoRun: () => invoke<string | null>("backup_auto_run"),
   backupRestore: (srcPath: string) => invoke<void>("backup_restore", { srcPath }),
   exportLog: (exportType: string, targetKind: string, targetId?: string) =>
     invoke<void>("export_log", { exportType, targetKind, targetId }),

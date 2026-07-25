@@ -9,12 +9,23 @@ export function BackupPage() {
   const [busy, setBusy] = useState(false);
   const [restoreStep, setRestoreStep] = useState<0 | 1 | 2>(0);
   const [restoreFile, setRestoreFile] = useState("");
+  const [autoDir, setAutoDir] = useState("");
+  const [autoDays, setAutoDays] = useState(1);
+  const [autoKeep, setAutoKeep] = useState(10);
   const toast = useToast();
 
   const loadInfo = () =>
     api.dashboard().then((d) => setLastBackup((d.last_backup_at as string) ?? null)).catch(() => undefined);
   useEffect(() => {
     void loadInfo();
+    api
+      .settingsGet()
+      .then((cfg) => {
+        setAutoDir(cfg.auto_backup_dir ?? "");
+        setAutoDays(Number(cfg.auto_backup_days) || 1);
+        setAutoKeep(Number(cfg.auto_backup_keep) || 10);
+      })
+      .catch(() => undefined);
   }, []);
 
   async function doBackup() {
@@ -76,6 +87,77 @@ export function BackupPage() {
         <button className="btn-primary" onClick={() => void doBackup()} disabled={busy}>
           Criar backup agora
         </button>
+      </div>
+
+      <div className="card mb-4">
+        <h2 className="mb-2 font-semibold">Backup automático</h2>
+        <p className="mb-3 text-base-700">
+          Escolha uma pasta e o app grava um backup sozinho ao abrir, respeitando o intervalo
+          definido. Dica: aponte para uma pasta do OneDrive para ter cópia fora do computador.
+        </p>
+        <div className="mb-3 flex flex-wrap items-end gap-3">
+          <div className="min-w-0 flex-1">
+            <label className="label">Pasta de destino</label>
+            <input className="input" value={autoDir} readOnly placeholder="(não configurada)" />
+          </div>
+          <button
+            className="btn-secondary"
+            onClick={async () => {
+              const dir = await openDialog({ directory: true });
+              if (typeof dir === "string") {
+                setAutoDir(dir);
+                await api.settingsSet("auto_backup_dir", dir);
+                toast("ok", "Backup automático configurado.");
+              }
+            }}
+          >
+            Escolher pasta…
+          </button>
+          {autoDir && (
+            <button
+              className="btn-secondary"
+              onClick={async () => {
+                setAutoDir("");
+                await api.settingsSet("auto_backup_dir", "");
+                toast("ok", "Backup automático desativado.");
+              }}
+            >
+              Desativar
+            </button>
+          )}
+        </div>
+        <div className="flex flex-wrap gap-4">
+          <div>
+            <label className="label">A cada (dias)</label>
+            <input
+              type="number"
+              min={1}
+              max={30}
+              className="input max-w-[7rem]"
+              value={autoDays}
+              onChange={(e) => {
+                const v = Math.max(1, Number(e.target.value));
+                setAutoDays(v);
+                void api.settingsSet("auto_backup_days", String(v));
+              }}
+            />
+          </div>
+          <div>
+            <label className="label">Manter últimas</label>
+            <input
+              type="number"
+              min={1}
+              max={60}
+              className="input max-w-[7rem]"
+              value={autoKeep}
+              onChange={(e) => {
+                const v = Math.max(1, Number(e.target.value));
+                setAutoKeep(v);
+                void api.settingsSet("auto_backup_keep", String(v));
+              }}
+            />
+          </div>
+        </div>
       </div>
 
       <div className="card">

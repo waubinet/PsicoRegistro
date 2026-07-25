@@ -30,6 +30,8 @@ export const useSession = create<SessionState>((set, get) => ({
       const fontScale = Number(cfg.font_scale) || 1;
       set({ theme, fontScale });
       applyAppearance(theme, fontScale);
+      // Backup automático (silencioso; respeita a pasta e o intervalo configurados).
+      void api.backupAutoRun().catch(() => undefined);
     } catch {
       set({ loading: false });
     }
