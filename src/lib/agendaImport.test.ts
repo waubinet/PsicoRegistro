@@ -21,9 +21,9 @@ describe("importação CSV", () => {
   it("lê colunas por cabeçalho e ignora linhas sem nome", () => {
     const csv = [
       "Data;Horário;Nome;Escola",
-      "23/06/2026;8h30;ELIZA GALVAO RIBEIRO;ATIORO",
-      "23/06/2026;9h30;;ATIORO",
-      "23/06/2026;10h30;LUKECIO DHON;NOVA REPUBLICA",
+      "23/06/2026;8h30;ALUNA EXEMPLO UM;ESCOLA MODELO",
+      "23/06/2026;9h30;;ESCOLA MODELO",
+      "23/06/2026;10h30;ALUNO EXEMPLO DOIS;ESCOLA MODELO DOIS",
     ].join("\n");
     const r = lerAgendaCsv(csv);
     expect(r.data).toBe("2026-06-23");
@@ -31,8 +31,8 @@ describe("importação CSV", () => {
     expect(r.ignoradas).toBe(1);
     expect(r.linhas[0]).toMatchObject({
       horario: "08:30",
-      nome: "ELIZA GALVAO RIBEIRO",
-      escola: "ATIORO",
+      nome: "ALUNA EXEMPLO UM",
+      escola: "ESCOLA MODELO",
     });
   });
 
