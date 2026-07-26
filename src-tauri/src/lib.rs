@@ -305,6 +305,7 @@ fn settings_set(st: State<'_, AppState>, key: String, value: String) -> Cmd<()> 
         "agenda_mostrar_nome_notificacao",
         "folha_cabecalho",
         "folha_subtitulo",
+        "pasta_manuais",
     ];
     if !allowed.contains(&key.as_str()) {
         return Err("Configuração desconhecida.".into());

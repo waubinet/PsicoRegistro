@@ -66,7 +66,7 @@ pub const TABLES: &[TableSpec] = &[
     },
     TableSpec {
         name: "neuropsych_instruments",
-        plain: &[],
+        plain: &["case_id"],
         restricted: false,
     },
     TableSpec {

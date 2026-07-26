@@ -6,6 +6,7 @@ import { NEURO_STAGES } from "@/lib/options";
 import { FormBuilder, type FieldDef } from "@/components/FormBuilder";
 import { ConfirmDialog, EmptyState, Modal, useToast } from "@/components/ui";
 import { useSession } from "@/store/session";
+import { PlanejamentoBateria } from "@/components/neuro/PlanejamentoBateria";
 
 const SESSION_FIELDS: FieldDef[] = [
   { name: "stage", label: "Etapa", type: "select", options: NEURO_STAGES, required: true },
@@ -28,7 +29,12 @@ const RESTRICTED_FIELDS: FieldDef[] = [
   { name: "technical_notes", label: "Observações técnicas", type: "textarea" },
 ];
 
-export function NeuroPanel(props: { caseId: string; entries: Entity[]; reload: () => void }) {
+export function NeuroPanel(props: {
+  caseId: string;
+  entries: Entity[];
+  reload: () => void;
+  paciente?: Entity | null;
+}) {
   const { restricted, refresh } = useSession();
   const [sessionOpen, setSessionOpen] = useState(false);
   const [editing, setEditing] = useState<Entity | null>(null);
@@ -36,6 +42,7 @@ export function NeuroPanel(props: { caseId: string; entries: Entity[]; reload: (
 
   return (
     <div className="mt-6 space-y-8">
+      <PlanejamentoBateria caseId={props.caseId} paciente={props.paciente ?? null} />
       <section>
         <div className="mb-2 flex items-center justify-between">
           <h2 className="text-xl font-semibold">Sessões de avaliação (por etapa)</h2>

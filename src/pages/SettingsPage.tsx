@@ -19,6 +19,7 @@ export function SettingsPage() {
   const [backupDays, setBackupDays] = useState(7);
   const [folhaCabecalho, setFolhaCabecalho] = useState("");
   const [folhaSubtitulo, setFolhaSubtitulo] = useState("");
+  const [pastaManuais, setPastaManuais] = useState("");
   const [confirmClear, setConfirmClear] = useState(false);
   const toast = useToast();
 
@@ -30,6 +31,7 @@ export function SettingsPage() {
         setBackupDays(Number(cfg.backup_reminder_days) || 7);
         setFolhaCabecalho(cfg.folha_cabecalho ?? "");
         setFolhaSubtitulo(cfg.folha_subtitulo ?? "");
+        setPastaManuais(cfg.pasta_manuais ?? "");
       })
       .catch(() => undefined);
   }, []);
@@ -120,6 +122,22 @@ export function SettingsPage() {
           value={folhaSubtitulo}
           onChange={(e) => setFolhaSubtitulo(e.target.value)}
           onBlur={() => void api.settingsSet("folha_subtitulo", folhaSubtitulo)}
+        />
+      </section>
+
+      <section className="card mb-4">
+        <h2 className="mb-3 font-semibold">Pasta de manuais e testes</h2>
+        <p className="mb-3 text-base-700">
+          Usada no planejamento da bateria neuropsicológica para abrir o manual do instrumento
+          direto do seu computador. Só o caminho é guardado — nenhum conteúdo de teste entra no
+          sistema.
+        </p>
+        <input
+          className="input font-mono text-sm"
+          placeholder="C:\Users\...\OneDrive\Documentos\01 Psicologia\Manuais e Testes"
+          value={pastaManuais}
+          onChange={(e) => setPastaManuais(e.target.value)}
+          onBlur={() => void api.settingsSet("pasta_manuais", pastaManuais)}
         />
       </section>
 

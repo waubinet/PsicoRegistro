@@ -111,7 +111,7 @@ export function CaseDetail() {
       <AgendaDaPessoa alvo={{ tipo: "caso", id }} titulo="Agenda deste caso" />
 
       {isNeuro ? (
-        <NeuroPanel caseId={id} entries={entries} reload={load} />
+        <NeuroPanel caseId={id} entries={entries} reload={load} paciente={patient} />
       ) : (
         <section className="mt-6">
           <div className="mb-2 flex items-center justify-between">
