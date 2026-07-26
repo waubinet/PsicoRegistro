@@ -5,3 +5,17 @@ src-tauri/target
 
 # Instaladores: distribuídos pelas releases do GitHub, não versionados
 Instalador/
+
+# ─── NUNCA versionar dados de pacientes/estudantes ───
+# O banco e os anexos vivem em %APPDATA%\br.com.psicoregistro.app\ e jamais
+# devem entrar no repositório. Estas regras são uma trava adicional, para o
+# caso de um arquivo ser copiado para cá por engano.
+*.db
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+*.prbk
+attachments/
+pre-restore-*/
+_banco-antigo-*/
