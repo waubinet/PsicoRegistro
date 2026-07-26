@@ -8,6 +8,7 @@ import { PatientDetail } from "./pages/PatientDetail";
 import { CaseDetail } from "./pages/CaseDetail";
 import { SchoolsList } from "./pages/SchoolsList";
 import { SchoolDetail } from "./pages/SchoolDetail";
+import { StudentsList } from "./pages/StudentsList";
 import { StudentDetail } from "./pages/StudentDetail";
 import { ReferralsPage } from "./pages/ReferralsPage";
 import { AgendaPage } from "./pages/AgendaPage";
@@ -46,6 +47,7 @@ export function App() {
             <Route path="casos/:id" element={<CaseDetail />} />
             <Route path="escolas" element={<SchoolsList />} />
             <Route path="escolas/:id" element={<SchoolDetail />} />
+            <Route path="alunos" element={<StudentsList />} />
             <Route path="estudantes/:id" element={<StudentDetail />} />
             <Route path="encaminhamentos" element={<ReferralsPage />} />
             <Route path="agenda" element={<AgendaPage />} />

@@ -5,6 +5,7 @@ const NAV = [
   { to: "/", label: "Painel", exact: true },
   { to: "/pacientes", label: "Prontuário Psicológico" },
   { to: "/escolas", label: "Psicologia Escolar" },
+  { to: "/alunos", label: "Alunos" },
   { to: "/encaminhamentos", label: "Encaminhamentos" },
   { to: "/agenda", label: "Agenda" },
   { to: "/pendencias", label: "Pendências" },
