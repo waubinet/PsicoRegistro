@@ -39,6 +39,16 @@ criptografia de disco protege contra acesso físico ao computador.
 de guarda e sigilo. Este modo transfere parte da proteção para a conta do Windows — mantenha-a com
 senha, e cuidado com backups portáteis.
 
+### Nenhuma senha no aplicativo
+
+Não há senha em ponto algum do uso: abrir, área neuropsicológica restrita, exclusão definitiva,
+criar e restaurar backup. A única senha existente é **opcional** e protege o **PDF exportado** —
+um arquivo que sai da aplicação; em branco, não é usada.
+
+**Consequência do backup:** o arquivo `.prbk` carrega a chave no cabeçalho, para restaurar sem
+digitar nada. Portanto **trate o backup como confidencial** — quem tiver o arquivo lê os dados.
+Guarde-o em local seguro (idealmente num disco/pasta já protegido pelo BitLocker).
+
 ### Reativando a proteção por senha
 
 O mecanismo de senha continua implementado em `src-tauri/src/auth.rs` (Argon2id, envelope de chave, lockout progressivo) — apenas desativado. Para reativar, basta voltar a usar `auth::create_user`/`auth::unlock` no lugar de `auth::local_key` e restaurar a tela de desbloqueio. **Isto é obrigatório caso a aplicação venha a ser distribuída ou comercializada.**

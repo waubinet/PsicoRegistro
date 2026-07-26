@@ -13,8 +13,9 @@ Aplicação **Tauri 2 + React + TypeScript + SQLite**, offline e sem telemetria.
 > 🔓 **Sem senha, com a chave protegida pelo Windows (0.2.0+).** O app abre direto, sem login. A
 > chave de criptografia é protegida pela **DPAPI do Windows** na sua conta de usuário — copiar o
 > banco para outro computador ou conta **não** dá acesso aos dados. A barreira efetiva passa a ser
-> a senha da sua conta Windows; recomenda-se ativar o **BitLocker**. O backup portátil continua
-> exigindo senha própria. Detalhes e limites em [SECURITY.md](SECURITY.md).
+> a senha da sua conta Windows; recomenda-se ativar o **BitLocker**. **Não há senha em lugar
+> nenhum do aplicativo** — nem para abrir, nem para a área restrita, nem para backup. Detalhes e
+> limites em [SECURITY.md](SECURITY.md).
 
 > ⚠ **Windows — Smart App Control**: se o seu Windows estiver com o **Smart App Control** em modo de imposição, a compilação nativa (`cargo`/`tauri build`) pode falhar com *"Uma política de Controle de Aplicativo bloqueou este arquivo"* (erro 4551), pois ele bloqueia build scripts recém-compilados de algumas dependências. Rode `.\scripts\verificar-projeto.ps1` para detectar. Para compilar, desative o Smart App Control em **Segurança do Windows → Controle de aplicativos e navegador → Configurações de proteção baseada em reputação → Smart App Control → Desativado** (essa ação é uma decisão de segurança sua e só pode ser revertida reinstalando o Windows). O frontend e a lógica do backend são totalmente testáveis sem essa mudança (veja abaixo).
 
