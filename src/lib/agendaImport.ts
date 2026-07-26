@@ -75,29 +75,33 @@ export function lerAgendaDocx(bytes: Uint8Array): AgendaLida {
 
   const textoTodo = limpaXml(xml);
   const data = dataBRparaISO(/Data:\s*([\d/]+)/i.exec(textoTodo)?.[1] ?? "");
-  const diaSemana = /semana:\s*([A-Za-zÀ-ú-]+)/i.exec(textoTodo)?.[1];
+  // O texto do cabeçalho vem colado ao da tabela ("TERÇA-FEIRAMATUTINOHORÁRIO…"),
+  // então recortamos no primeiro marcador conhecido.
+  const diaSemana = /semana:\s*([A-Za-zÀ-ú]+(?:-FEIRA)?)/i
+    .exec(textoTodo)?.[1]
+    ?.replace(/(MATUTINO|VESPERTINO|HOR[ÁA]RIO).*$/i, "")
+    .trim();
   const profissional = /Profissional:\s*([A-ZÀ-Ú][A-ZÀ-Ú\s.]+?)(?:\s{2,}|Data:)/i
     .exec(textoTodo)?.[1]
     ?.trim();
 
   const linhas: LinhaAgenda[] = [];
   let ignoradas = 0;
-  let periodo = "";
   let indice = 0;
+  // O documento tem duas tabelas: a 1ª é o matutino, a 2ª o vespertino. Cada
+  // uma começa com uma linha de cabeçalho.
+  let bloco = 0;
+  let periodo = "";
 
-  // percorre as linhas de tabela na ordem do documento
   const trs = xml.match(/<w:tr[\s>][\s\S]*?<\/w:tr>/g) ?? [];
-  // marcadores de período aparecem entre as tabelas
-  const antesDaPrimeira = xml.slice(0, xml.indexOf("<w:tr"));
-  if (/matutino/i.test(limpaXml(antesDaPrimeira))) periodo = "matutino";
 
   for (const tr of trs) {
     indice += 1;
     const celulas = (tr.match(/<w:tc[\s>][\s\S]*?<\/w:tc>/g) ?? []).map(limpaXml);
     if (celulas.length === 0) continue;
     if (ehCabecalho(celulas)) {
-      // a segunda tabela é o vespertino
-      periodo = periodo === "matutino" ? "vespertino" : periodo || "matutino";
+      bloco += 1;
+      periodo = bloco === 1 ? "matutino" : bloco === 2 ? "vespertino" : "";
       ignoradas += 1;
       continue;
     }

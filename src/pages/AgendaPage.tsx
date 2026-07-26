@@ -10,6 +10,9 @@ import { addDays, monthGrid, parseISO, todayISO, weekDays } from "@/lib/agendaTi
 import { api } from "@/lib/api";
 import { formatDateBR } from "@/lib/format";
 import { labelOf } from "@/lib/options";
+import { save as saveDialog } from "@tauri-apps/plugin-dialog";
+import { gerarFolhaAgendaPDF } from "@/lib/docAgendaDiaria";
+import { writeFile } from "@/components/exportFile";
 import { EventEditor } from "@/components/agenda/EventEditor";
 import { ImportarAgenda } from "@/components/agenda/ImportarAgenda";
 import { WeekGrid } from "@/components/agenda/WeekGrid";
@@ -126,6 +129,59 @@ export function AgendaPage() {
     }
   }
 
+  /**
+   * Folha do dia para impressão: mesmo formato do documento oficial, com as
+   * colunas P/F e RESPONSÁVEL em branco para preenchimento e assinatura.
+   */
+  async function imprimirFolha() {
+    const dia = vista === "hoje" ? hoje : refDate;
+    const doDiaFolha = eventos
+      .filter((e) => e.event_date === dia && e.status !== "cancelado")
+      .sort((a, b) => String(a.start_at).localeCompare(String(b.start_at)));
+    if (doDiaFolha.length === 0) {
+      toast("error", `Nenhum atendimento em ${formatDateBR(dia)} para imprimir.`);
+      return;
+    }
+    try {
+      const [perfilRows, escolasRows, cfg] = await Promise.all([
+        api.list("professional_profiles").catch(() => []),
+        api.list("schools").catch(() => []),
+        api.settingsGet().catch(() => ({}) as Record<string, string>),
+      ]);
+      const perfil = perfilRows[0] as Record<string, unknown> | undefined;
+      const nomeEscola = new Map<string, string>();
+      escolasRows.forEach((s) => nomeEscola.set(s.id, String(s.name)));
+
+      const dest = await saveDialog({
+        defaultPath: `AGENDA DE ATENDIMENTO - ${dia}.pdf`,
+        filters: [{ name: "PDF", extensions: ["pdf"] }],
+      });
+      if (!dest) return;
+
+      const bytes = gerarFolhaAgendaPDF({
+        dataISO: dia,
+        profissional: perfil?.name ? String(perfil.name) : "",
+        instituicao: perfil?.institution ? String(perfil.institution) : undefined,
+        cabecalhoLinhas: (cfg.folha_cabecalho ?? "")
+          .split("\n")
+          .map((l) => l.trim())
+          .filter(Boolean),
+        subtitulo: cfg.folha_subtitulo || undefined,
+        linhas: doDiaFolha.map((e) => ({
+          horario: String(e.start_at ?? ""),
+          nome: String(e.title ?? ""),
+          contato: String(e.administrative_note ?? "").replace(/^Contato:\s*/i, ""),
+          escola: nomeEscola.get(String(e.school_id ?? "")) ?? String(e.location ?? ""),
+        })),
+      });
+      await writeFile(dest, new Uint8Array(bytes));
+      await api.exportLog("folha_agenda", "agenda_events", undefined);
+      toast("ok", "Folha gerada. Fora do app ela não está protegida.");
+    } catch (e) {
+      toast("error", `Falha ao gerar a folha: ${String(e)}`);
+    }
+  }
+
   const tituloPeriodo = useMemo(() => {
     const d = parseISO(refDate);
     if (vista === "semana") {
@@ -159,6 +215,13 @@ export function AgendaPage() {
   return (
     <div>
       <PageHeader title="Agenda">
+        <button
+          className="btn-secondary"
+          title="Gera a folha de atendimento do dia para impressão e assinatura"
+          onClick={() => void imprimirFolha()}
+        >
+          Imprimir folha do dia
+        </button>
         <button className="btn-secondary" onClick={() => setImportarAberto(true)}>
           Importar agenda
         </button>

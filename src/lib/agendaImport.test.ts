@@ -69,6 +69,29 @@ describe("importação .docx (agenda real do CEAP)", () => {
     expect(comData, "a maioria das agendas traz a data completa").toBeGreaterThan(0);
   });
 
+  it.skipIf(arquivos.length === 0)("separa matutino de vespertino pelo horário", () => {
+    for (const nome of arquivos) {
+      const bytes = new Uint8Array(fs.readFileSync(path.join(PASTA_REAL, nome)));
+      const r = lerAgendaDocx(bytes);
+      for (const l of r.linhas) {
+        const hora = Number(l.horario.slice(0, 2));
+        if (hora < 12) expect(l.periodo, `${nome} ${l.horario}`).toBe("matutino");
+        else expect(l.periodo, `${nome} ${l.horario}`).toBe("vespertino");
+      }
+    }
+  });
+
+  it.skipIf(arquivos.length === 0)("dia da semana não vem colado ao resto do texto", () => {
+    for (const nome of arquivos) {
+      const bytes = new Uint8Array(fs.readFileSync(path.join(PASTA_REAL, nome)));
+      const r = lerAgendaDocx(bytes);
+      if (r.diaSemana) {
+        expect(r.diaSemana, nome).not.toMatch(/MATUTINO|HOR[ÁA]RIO|NOME/i);
+        expect(r.diaSemana.length).toBeLessThan(20);
+      }
+    }
+  });
+
   it.skipIf(arquivos.length === 0)("não confunde cabeçalho com atendimento", () => {
     for (const nome of arquivos) {
       const bytes = new Uint8Array(fs.readFileSync(path.join(PASTA_REAL, nome)));

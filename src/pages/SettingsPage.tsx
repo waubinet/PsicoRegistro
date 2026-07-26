@@ -17,6 +17,8 @@ export function SettingsPage() {
   const { theme, fontScale, setTheme, setFontScale } = useSession();
   const [profile, setProfile] = useState<Record<string, unknown> | null>(null);
   const [backupDays, setBackupDays] = useState(7);
+  const [folhaCabecalho, setFolhaCabecalho] = useState("");
+  const [folhaSubtitulo, setFolhaSubtitulo] = useState("");
   const [confirmClear, setConfirmClear] = useState(false);
   const toast = useToast();
 
@@ -24,7 +26,11 @@ export function SettingsPage() {
     api.list("professional_profiles").then((rows) => setProfile(rows[0] ?? null)).catch(() => undefined);
     api
       .settingsGet()
-      .then((cfg) => setBackupDays(Number(cfg.backup_reminder_days) || 7))
+      .then((cfg) => {
+        setBackupDays(Number(cfg.backup_reminder_days) || 7);
+        setFolhaCabecalho(cfg.folha_cabecalho ?? "");
+        setFolhaSubtitulo(cfg.folha_subtitulo ?? "");
+      })
       .catch(() => undefined);
   }, []);
 
@@ -83,6 +89,37 @@ export function SettingsPage() {
             }
             toast("ok", "Cabeçalho salvo.");
           }}
+        />
+      </section>
+
+      <section className="card mb-4">
+        <h2 className="mb-3 font-semibold">Folha de agenda para impressão</h2>
+        <p className="mb-3 text-base-700">
+          Cabeçalho da folha “Agenda de Atendimento Diário”, impressa para colher a assinatura dos
+          responsáveis. Uma linha por linha do timbre.
+        </p>
+        <label className="label" htmlFor="folha-cab">
+          Cabeçalho institucional
+        </label>
+        <textarea
+          id="folha-cab"
+          className="input mb-3 font-mono text-sm"
+          rows={5}
+          placeholder={"ESTADO DO PARÁ\nMUNICÍPIO DE ...\nENDEREÇO\nCEP\nCEAP (Coordenação ...)"}
+          value={folhaCabecalho}
+          onChange={(e) => setFolhaCabecalho(e.target.value)}
+          onBlur={() => void api.settingsSet("folha_cabecalho", folhaCabecalho)}
+        />
+        <label className="label" htmlFor="folha-sub">
+          Subtítulo
+        </label>
+        <input
+          id="folha-sub"
+          className="input"
+          placeholder="INTERVENÇÃO E AVALIAÇÃO ZONA RURAL"
+          value={folhaSubtitulo}
+          onChange={(e) => setFolhaSubtitulo(e.target.value)}
+          onBlur={() => void api.settingsSet("folha_subtitulo", folhaSubtitulo)}
         />
       </section>
 

@@ -303,6 +303,8 @@ fn settings_set(st: State<'_, AppState>, key: String, value: String) -> Cmd<()> 
         "agenda_hora_fim",
         "agenda_lembrete_minutos",
         "agenda_mostrar_nome_notificacao",
+        "folha_cabecalho",
+        "folha_subtitulo",
     ];
     if !allowed.contains(&key.as_str()) {
         return Err("Configuração desconhecida.".into());
