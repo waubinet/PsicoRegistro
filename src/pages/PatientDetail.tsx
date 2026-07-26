@@ -13,6 +13,7 @@ import {
 import { FormBuilder, type FieldDef } from "@/components/FormBuilder";
 import { ExportDialog } from "@/components/ExportDialog";
 import { Timeline } from "@/components/Timeline";
+import { AgendaDaPessoa } from "@/components/agenda/AgendaDaPessoa";
 import { ConfirmDialog, EmptyState, Loading, Modal, PageHeader, useToast } from "@/components/ui";
 import { PATIENT_FIELDS } from "./PatientsList";
 
@@ -178,6 +179,8 @@ export function PatientDetail() {
           </div>
         )}
       </section>
+
+      <AgendaDaPessoa alvo={{ tipo: "paciente", id }} />
 
       <section className="mt-6">
         <h2 className="mb-2 text-xl font-semibold">Linha do tempo do paciente</h2>

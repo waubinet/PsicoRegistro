@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { vincularAgenda } from "@/lib/agendaLink";
 import { api, type Entity } from "@/lib/api";
 import { formatDateBR } from "@/lib/format";
 import {
@@ -14,6 +15,7 @@ import {
 import { FormBuilder, type FieldDef } from "@/components/FormBuilder";
 import { ExportDialog, type ExportSection } from "@/components/ExportDialog";
 import { ReportDialog } from "@/components/ReportDialog";
+import { AgendaDaPessoa } from "@/components/agenda/AgendaDaPessoa";
 import { relatorioAluno } from "@/lib/schoolReport";
 import { Timeline } from "@/components/Timeline";
 import { ConfirmDialog, EmptyState, Loading, Modal, PageHeader, useToast } from "@/components/ui";
@@ -101,6 +103,7 @@ const REFERRAL_FIELDS: FieldDef[] = [
 
 export function StudentDetail() {
   const { id = "" } = useParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [student, setStudent] = useState<Entity | null>(null);
   const [records, setRecords] = useState<Entity[]>([]);
   const [referrals, setReferrals] = useState<Entity[]>([]);
@@ -120,6 +123,26 @@ export function StudentDetail() {
   }, [id]);
 
   useEffect(load, [load]);
+
+  // Veio da agenda com "Registrar atendimento": abre o registro já preenchido.
+  const agendaId = searchParams.get("agenda") ?? "";
+  const agendaSeed = agendaId
+    ? {
+        eventId: agendaId,
+        record_date: searchParams.get("data") ?? "",
+        time: searchParams.get("inicio") ?? "",
+        activity_type: searchParams.get("tipo") ?? "",
+      }
+    : undefined;
+
+  useEffect(() => {
+    if (agendaId && !recordOpen) {
+      setSelectedRecord(null);
+      setRecordOpen(true);
+      setSearchParams({}, { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [agendaId]);
 
   const recordFields = useMemo(() => [...RECORD_FIELDS, ...THIRD_PARTY_FIELDS], []);
   const historySections: ExportSection[] = useMemo(
@@ -172,7 +195,9 @@ export function StudentDetail() {
         </div>
       </div>
 
-      <section className="mb-6">
+      <AgendaDaPessoa alvo={{ tipo: "estudante", id }} />
+
+      <section className="mb-6 mt-6">
         <div className="mb-2 flex items-center justify-between">
           <h2 className="text-xl font-semibold">Registros de atividade</h2>
           <button
@@ -250,6 +275,7 @@ export function StudentDetail() {
           schoolId={String(student.school_id)}
           fields={recordFields}
           record={selectedRecord}
+          agendaSeed={agendaSeed}
           onClose={() => setRecordOpen(false)}
           onSaved={() => {
             setRecordOpen(false);
@@ -308,6 +334,8 @@ function RecordEditor(props: {
   schoolId: string;
   fields: FieldDef[];
   record: Entity | null;
+  /** Dados administrativos vindos de um compromisso da agenda. */
+  agendaSeed?: { eventId: string; record_date: string; time: string; activity_type: string };
   onClose: () => void;
   onSaved: () => void;
 }) {
@@ -335,7 +363,17 @@ function RecordEditor(props: {
       ) : (
         <FormBuilder
           fields={props.fields}
-          initial={current ?? { restriction_level: "padrao" }}
+          initial={{
+            restriction_level: "padrao",
+            ...(props.agendaSeed
+              ? {
+                  record_date: props.agendaSeed.record_date,
+                  time: props.agendaSeed.time,
+                  activity_type: props.agendaSeed.activity_type,
+                }
+              : {}),
+            ...(current ?? {}),
+          }}
           onCancel={props.onClose}
           submitLabel="Salvar rascunho"
           footer={
@@ -353,10 +391,15 @@ function RecordEditor(props: {
               status: "rascunho",
             };
             try {
-              if (current?.id) await api.update("school_records", current.id, payload);
+              let recId = current?.id ?? "";
+              if (recId) await api.update("school_records", recId, payload);
               else {
-                const id = await api.create("school_records", payload);
-                setCurrent(await api.get("school_records", id));
+                recId = await api.create("school_records", payload);
+                setCurrent(await api.get("school_records", recId));
+              }
+              // vínculo bidirecional com o compromisso da agenda
+              if (props.agendaSeed?.eventId && recId) {
+                await vincularAgenda(props.agendaSeed.eventId, { school_record_id: recId });
               }
               toast("ok", "Registro salvo.");
               props.onSaved();

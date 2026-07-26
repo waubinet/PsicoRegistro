@@ -4,10 +4,17 @@ Suíte **desktop local-first** para profissionais de Psicologia, com dois módul
 
 - **Prontuário Psicológico** — intervenção, psicoterapia e avaliação neuropsicológica.
 - **Psicologia Escolar** — escolas, estudantes, registros de atividade, contatos e encaminhamentos.
+- **Agenda** — camada que integra os dois: agendar, registrar o atendimento a partir do
+  compromisso e importar as agendas já existentes. Ver [docs/AGENDA.md](docs/AGENDA.md) e
+  [docs/AGENDA-IMPORT.md](docs/AGENDA-IMPORT.md).
 
 Aplicação **Tauri 2 + React + TypeScript + SQLite**, offline e sem telemetria. A única conexão de rede é o verificador de atualizações (GitHub), que baixa apenas binários assinados e não envia dado algum.
 
-> ⚠ **Modo sem senha.** Esta versão abre direto, sem senha, por opção do usuário (uso pessoal em máquina própria). Os dados são gravados cifrados, mas **a chave fica junto no computador** — quem tiver acesso aos arquivos lê tudo, e o backup `.prbk` carrega a chave. A proteção efetiva passa a ser a senha da conta Windows e a criptografia de disco (**recomenda-se ativar o BitLocker**). O mecanismo de senha continua implementado, apenas desativado — veja [SECURITY.md](SECURITY.md) para reativá-lo (obrigatório em caso de distribuição ou comercialização).
+> 🔓 **Sem senha, com a chave protegida pelo Windows (0.2.0+).** O app abre direto, sem login. A
+> chave de criptografia é protegida pela **DPAPI do Windows** na sua conta de usuário — copiar o
+> banco para outro computador ou conta **não** dá acesso aos dados. A barreira efetiva passa a ser
+> a senha da sua conta Windows; recomenda-se ativar o **BitLocker**. O backup portátil continua
+> exigindo senha própria. Detalhes e limites em [SECURITY.md](SECURITY.md).
 
 > ⚠ **Windows — Smart App Control**: se o seu Windows estiver com o **Smart App Control** em modo de imposição, a compilação nativa (`cargo`/`tauri build`) pode falhar com *"Uma política de Controle de Aplicativo bloqueou este arquivo"* (erro 4551), pois ele bloqueia build scripts recém-compilados de algumas dependências. Rode `.\scripts\verificar-projeto.ps1` para detectar. Para compilar, desative o Smart App Control em **Segurança do Windows → Controle de aplicativos e navegador → Configurações de proteção baseada em reputação → Smart App Control → Desativado** (essa ação é uma decisão de segurança sua e só pode ser revertida reinstalando o Windows). O frontend e a lógica do backend são totalmente testáveis sem essa mudança (veja abaixo).
 

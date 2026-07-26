@@ -2,6 +2,41 @@
 
 Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/). Versionamento semântico.
 
+## [0.2.0] — 2026-07-22
+
+### Segurança
+- **Chave protegida pela DPAPI do Windows** (escopo do usuário atual). A aplicação continua abrindo
+  **sem senha**, mas a chave deixa de ficar em texto puro no banco. Copiar o arquivo para outro
+  computador ou conta não dá mais acesso aos dados.
+- Migração validada em 9 etapas, com aborto seguro: a chave em claro só é removida após confirmar
+  que a mesma chave foi recuperada e que os registros existentes continuam legíveis. Coberta por
+  testes, inclusive um de integração sobre **cópia do banco real**.
+- A auditoria registra `key_protected` — nunca a chave.
+
+### Agenda (novo módulo)
+- Visualizações **Semana** (principal), Hoje, Dia, Mês e Lista, com faixa de horário configurável.
+- Compromissos clínicos, escolares e administrativos, com 8 situações.
+- **Vínculos automáticos**: paciente → casos ativos; estudante → escola e turma (por id).
+- **Registrar atendimento a partir do compromisso**: abre a evolução ou o registro escolar já
+  preenchidos com data e horários; ao salvar, evento e registro ficam vinculados nos dois sentidos
+  e o compromisso vira "Realizado".
+- **Recorrência** semanal, quinzenal, mensal e personalizada, materializada em compromissos
+  individuais — cancelar um não afeta a série.
+- **Detecção de conflitos** que avisa sem bloquear.
+- Agenda visível no paciente, caso, estudante e escola; seção **Hoje** no painel; indicador de
+  **atendimentos realizados sem registro**.
+
+### Importação da agenda
+- Assistente em etapas para `.docx` (modelo CEAP) e `.csv`, com prévia antes de gravar.
+- Correspondência de pessoas: exata é automática; parcial exige confirmação; desconhecida não cria
+  cadastro. **Nunca** vincula por semelhança silenciosamente.
+- Detecção de duplicados e de reimportação do mesmo arquivo (por hash).
+- O arquivo original é lido em **modo somente leitura**.
+
+### Preservado
+Prontuário, módulo escolar, ocorrência de visita, relatórios, exportações, backup, auditoria,
+lixeira, updater e o módulo de **pendências** (que segue separado da agenda).
+
 ## [0.1.0] — 2026-07-21
 
 ### Alterado (decisão do usuário)

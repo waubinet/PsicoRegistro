@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { api } from "@/lib/api";
 import { daysSince, formatDateTimeBR } from "@/lib/format";
 import { PageHeader } from "@/components/ui";
+import { AgendaDeHoje } from "@/components/agenda/AgendaDeHoje";
 
 function Stat(props: { label: string; value: number | string; to?: string; warn?: boolean }) {
   const body = (
@@ -33,6 +34,8 @@ export function Dashboard() {
   return (
     <div>
       <PageHeader title="Painel inicial" />
+
+      <AgendaDeHoje />
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
         <Stat label="Atendimentos (7 dias)" value={n("recent_entries") + n("recent_school")} />
         <Stat label="Registros em rascunho" value={n("drafts")} />

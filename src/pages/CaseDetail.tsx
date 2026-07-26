@@ -1,19 +1,32 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { api, type Entity } from "@/lib/api";
 import { formatDateBR } from "@/lib/format";
+import { vincularAgenda } from "@/lib/agendaLink";
 import { entryFieldsFor } from "@/lib/entryFields";
 import { CASE_STATUS, CASE_TYPES, ENTRY_STATUS, labelOf } from "@/lib/options";
 import { FormBuilder } from "@/components/FormBuilder";
 import { ExportDialog, type ExportSection } from "@/components/ExportDialog";
 import { Timeline } from "@/components/Timeline";
+import { AgendaDaPessoa } from "@/components/agenda/AgendaDaPessoa";
 import { ConfirmDialog, EmptyState, Loading, Modal, PageHeader, useToast } from "@/components/ui";
 import { NeuroPanel } from "./NeuroPanel";
 
 const AUTOSAVE_MS = 3000;
 
+/** Dados administrativos vindos de um compromisso da agenda. */
+export type AgendaSeed = {
+  eventId: string;
+  data: string;
+  inicio: string;
+  fim: string;
+  etapa?: string;
+  tipo?: string;
+};
+
 export function CaseDetail() {
   const { id = "" } = useParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [caseRow, setCaseRow] = useState<Entity | null>(null);
   const [patient, setPatient] = useState<Entity | null>(null);
   const [entries, setEntries] = useState<Entity[]>([]);
@@ -31,6 +44,28 @@ export function CaseDetail() {
   }, [id]);
 
   useEffect(load, [load]);
+
+  // Veio da agenda com "Registrar atendimento": abre a evolução já preenchida.
+  const agendaId = searchParams.get("agenda") ?? "";
+  const agendaSeed: AgendaSeed | undefined = agendaId
+    ? {
+        eventId: agendaId,
+        data: searchParams.get("data") ?? "",
+        inicio: searchParams.get("inicio") ?? "",
+        fim: searchParams.get("fim") ?? "",
+        etapa: searchParams.get("etapa") ?? undefined,
+      }
+    : undefined;
+
+  useEffect(() => {
+    if (agendaId && !open) {
+      setSelected(null);
+      setOpen(true);
+      // limpa a query para não reabrir ao navegar de volta
+      setSearchParams({}, { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [agendaId]);
 
   if (!caseRow) return <Loading />;
   const caseType = String(caseRow.case_type);
@@ -72,6 +107,8 @@ export function CaseDetail() {
       )}
 
       <CaseSummary caseRow={caseRow} onSaved={load} />
+
+      <AgendaDaPessoa alvo={{ tipo: "caso", id }} titulo="Agenda deste caso" />
 
       {isNeuro ? (
         <NeuroPanel caseId={id} entries={entries} reload={load} />
@@ -116,6 +153,7 @@ export function CaseDetail() {
           caseId={id}
           caseType={caseType}
           entry={selected}
+          agendaSeed={agendaSeed}
           onClose={() => setOpen(false)}
           onSaved={() => {
             setOpen(false);
@@ -178,11 +216,25 @@ function EntryEditor(props: {
   caseId: string;
   caseType: string;
   entry: Entity | null;
+  agendaSeed?: AgendaSeed;
   onClose: () => void;
   onSaved: () => void;
 }) {
   const fields = useMemo(() => entryFieldsFor(props.caseType), [props.caseType]);
   const [entry, setEntry] = useState<Entity | null>(props.entry);
+  /** Dados administrativos já preenchidos pelo compromisso da agenda. */
+  const seedInicial = useMemo(
+    () =>
+      props.agendaSeed
+        ? {
+            entry_date: props.agendaSeed.data,
+            start_time: props.agendaSeed.inicio,
+            end_time: props.agendaSeed.fim,
+            ...(props.agendaSeed.etapa ? { stage: props.agendaSeed.etapa } : {}),
+          }
+        : {},
+    [props.agendaSeed],
+  );
   const [draftValues, setDraftValues] = useState<Record<string, unknown>>({});
   const [addendumOpen, setAddendumOpen] = useState(false);
   const [addenda, setAddenda] = useState<Entity[]>([]);
@@ -283,7 +335,7 @@ function EntryEditor(props: {
       ) : (
         <FormBuilder
           fields={fields}
-          initial={entry ?? {}}
+          initial={{ ...seedInicial, ...(entry ?? {}) }}
           onChange={setDraftValues}
           submitLabel="Salvar rascunho"
           onCancel={props.onClose}
@@ -297,10 +349,16 @@ function EntryEditor(props: {
           onSubmit={async (v) => {
             const payload = { ...v, case_id: props.caseId, entry_type: props.caseType, status: "rascunho" };
             try {
-              if (entry?.id) {
-                await api.update("clinical_entries", entry.id, payload);
+              let entryId = entry?.id ?? "";
+              if (entryId) {
+                await api.update("clinical_entries", entryId, payload);
               } else {
-                await api.create("clinical_entries", payload);
+                entryId = await api.create("clinical_entries", payload);
+                setEntry(await api.get("clinical_entries", entryId));
+              }
+              // vínculo bidirecional com o compromisso da agenda
+              if (props.agendaSeed?.eventId && entryId) {
+                await vincularAgenda(props.agendaSeed.eventId, { clinical_entry_id: entryId });
               }
               toast("ok", "Rascunho salvo.");
               props.onSaved();

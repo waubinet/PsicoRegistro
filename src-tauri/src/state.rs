@@ -22,7 +22,11 @@ pub struct Inner {
 impl AppState {
     pub fn new(data_dir: PathBuf) -> Self {
         Self {
-            inner: Mutex::new(Inner { conn: None, key: None, restricted_until: None }),
+            inner: Mutex::new(Inner {
+                conn: None,
+                key: None,
+                restricted_until: None,
+            }),
             data_dir,
         }
     }
@@ -49,10 +53,14 @@ impl Inner {
     }
 
     pub fn require_conn(&self) -> Result<&Connection, String> {
-        self.conn.as_ref().ok_or_else(|| "Banco de dados indisponível.".to_string())
+        self.conn
+            .as_ref()
+            .ok_or_else(|| "Banco de dados indisponível.".to_string())
     }
 
     pub fn restricted_ok(&self) -> bool {
-        self.restricted_until.map(|t| t > Instant::now()).unwrap_or(false)
+        self.restricted_until
+            .map(|t| t > Instant::now())
+            .unwrap_or(false)
     }
 }

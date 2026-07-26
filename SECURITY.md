@@ -2,20 +2,42 @@
 
 Este documento descreve, com franqueza, o que a aplicação protege e **o que ela não protege**.
 
-## ⚠ Modo sem senha (configuração atual)
+## Sem senha, com a chave protegida pelo Windows (0.2.0+)
 
-Esta versão foi deliberadamente configurada para **abrir sem qualquer senha**, a pedido do usuário, para uso pessoal em máquina própria.
+A aplicação **abre direto, sem senha** — decisão de produto para uso pessoal em máquina própria.
+Não há tela de login, bloqueio por inatividade nem Windows Hello.
 
-Consequências, sem rodeios:
+O que mudou na 0.2.0: a chave de criptografia **deixou de ficar em texto puro**. Agora ela é
+protegida pela **DPAPI do Windows** no escopo da **conta do usuário atual**
+(`CryptProtectData` / `CryptUnprotectData`, com entropia própria da aplicação e sem qualquer
+interação). O Windows decifra automaticamente para a sua conta — por isso continua sem senha.
 
-- A chave de criptografia é gerada na primeira execução e guardada **em claro** no próprio banco (`app_settings.master_key`).
-- Portanto, **quem tiver acesso aos arquivos consegue ler todo o conteúdo** — prontuários, registros escolares e anexos. Copiar a pasta de dados para um pendrive é suficiente.
-- O arquivo de backup `.prbk` **carrega a chave no cabeçalho**: qualquer cópia dele é legível por qualquer pessoa.
-- A única barreira efetiva é o **controle de acesso do sistema operacional** (a senha da conta Windows) e a segurança física do computador.
+**Ganho real:** copiar o banco para outro computador ou abrir com outra conta do Windows **não dá
+mais acesso aos dados**. Antes, bastava copiar o arquivo.
 
-**Implicações profissionais:** a Resolução CFP nº 01/2009 e a LGPD atribuem ao profissional o dever de guarda e sigilo dos registros. Neste modo, esse dever recai **inteiramente sobre medidas externas ao aplicativo**: senha de conta do Windows, criptografia de disco (BitLocker), controle de acesso físico e cuidado com backups. Se o computador for compartilhado, perdido, roubado ou levado à assistência técnica, os dados estarão acessíveis.
+**Limite honesto:** a proteção é da *conta do Windows*. Quem usar **a sua sessão do Windows
+desbloqueada** (ou um malware nela) continua com acesso. A senha da conta Windows passa a ser a
+barreira efetiva.
 
-**Recomendação:** ative a **criptografia de disco do Windows (BitLocker)**. É a proteção que efetivamente substitui a senha do aplicativo neste cenário.
+### Migração da chave (executada uma única vez)
+
+Ao abrir a versão nova sobre um banco antigo, a **mesma chave** é migrada — os dados existentes
+continuam legíveis. A sequência aborta ao primeiro problema, sem tocar em registro algum:
+
+1. lê a chave em texto puro; 2. valida que ela **decifra um registro existente**;
+3. protege a mesma chave com DPAPI; 4. grava o blob; 5. recupera pela DPAPI;
+6. confere que é **idêntica** e revalida a leitura; 7. **só então** remove a versão em texto puro;
+8. audita apenas o evento `key_protected` — **nunca a chave**.
+
+Se a DPAPI estiver indisponível, o app continua funcionando com a chave em claro (degradação
+explícita, visível em Configurações). Coberto por testes automatizados.
+
+**Recomendação mantida:** ative o **BitLocker**. A DPAPI protege contra cópia do arquivo; a
+criptografia de disco protege contra acesso físico ao computador.
+
+**Implicações profissionais:** a Resolução CFP nº 01/2009 e a LGPD atribuem ao profissional o dever
+de guarda e sigilo. Este modo transfere parte da proteção para a conta do Windows — mantenha-a com
+senha, e cuidado com backups portáteis.
 
 ### Reativando a proteção por senha
 

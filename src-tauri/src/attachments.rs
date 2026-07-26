@@ -128,7 +128,16 @@ mod tests {
         let src = dir.path().join("doc.pdf");
         fs::write(&src, b"%PDF-1.4 conteudo de teste").unwrap();
         let att_dir = dir.path().join("att");
-        let id = add(&conn, &key, &att_dir, "patients", "p1", src.to_str().unwrap(), false).unwrap();
+        let id = add(
+            &conn,
+            &key,
+            &att_dir,
+            "patients",
+            "p1",
+            src.to_str().unwrap(),
+            false,
+        )
+        .unwrap();
         // arquivo em disco deve estar cifrado
         let on_disk = fs::read(att_dir.join(format!("{}.bin", id))).unwrap();
         assert!(!String::from_utf8_lossy(&on_disk).contains("conteudo de teste"));

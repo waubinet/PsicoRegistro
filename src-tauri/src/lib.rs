@@ -7,6 +7,8 @@ pub mod backup;
 pub mod crypto;
 pub mod db;
 pub mod demo;
+#[cfg(windows)]
+pub mod dpapi;
 pub mod entities;
 pub mod search;
 pub mod state;
@@ -43,10 +45,18 @@ fn app_status(st: State<'_, AppState>) -> Cmd<Value> {
         Some(c) => auth::get_user(c)?.is_some(),
         None => false,
     };
+    let protecao = match inner.conn.as_ref() {
+        Some(c) => match auth::protecao_atual(c) {
+            auth::ProtecaoChave::Dpapi => "dpapi",
+            auth::ProtecaoChave::TextoPuro => "texto_puro",
+        },
+        None => "desconhecida",
+    };
     Ok(json!({
         "initialized": initialized,
         "unlocked": inner.key.is_some(),
         "restricted": inner.restricted_ok(),
+        "key_protection": protecao,
     }))
 }
 
@@ -57,7 +67,13 @@ fn restricted_unlock(st: State<'_, AppState>) -> Cmd<()> {
     let mut inner = st.inner.lock().map_err(|_| "Erro interno.")?;
     {
         let conn = inner.require_conn()?;
-        audit::log(conn, "restricted_access", "restricted_neuropsych_records", None, None);
+        audit::log(
+            conn,
+            "restricted_access",
+            "restricted_neuropsych_records",
+            None,
+            None,
+        );
     }
     inner.restricted_until = Some(Instant::now() + Duration::from_secs(600));
     Ok(())
@@ -88,7 +104,13 @@ fn entity_list(
 ) -> Cmd<Vec<Value>> {
     with_open(&st, |conn, key, inner| {
         guard_restricted(&table, inner)?;
-        entities::list(conn, key, &table, &filters.unwrap_or_default(), include_deleted.unwrap_or(false))
+        entities::list(
+            conn,
+            key,
+            &table,
+            &filters.unwrap_or_default(),
+            include_deleted.unwrap_or(false),
+        )
     })
 }
 
@@ -155,7 +177,12 @@ fn finalize_entry(st: State<'_, AppState>, table: String, id: String) -> Cmd<()>
 }
 
 #[tauri::command]
-fn add_addendum(st: State<'_, AppState>, entry_id: String, reason: String, content: String) -> Cmd<String> {
+fn add_addendum(
+    st: State<'_, AppState>,
+    entry_id: String,
+    reason: String,
+    content: String,
+) -> Cmd<String> {
     with_open(&st, |conn, key, _| {
         // valida existência e status
         let entry = entities::get(conn, key, "clinical_entries", &entry_id)?;
@@ -186,9 +213,7 @@ fn search_global(st: State<'_, AppState>, query: String) -> Cmd<Vec<Value>> {
 #[tauri::command]
 fn stats_counts(st: State<'_, AppState>) -> Cmd<Value> {
     with_open(&st, |conn, _key, _| {
-        let count = |sql: &str| -> i64 {
-            conn.query_row(sql, [], |r| r.get(0)).unwrap_or(0)
-        };
+        let count = |sql: &str| -> i64 { conn.query_row(sql, [], |r| r.get(0)).unwrap_or(0) };
         let group = |sql: &str| -> Vec<Value> {
             let mut out = Vec::new();
             if let Ok(mut stmt) = conn.prepare(sql) {
@@ -223,7 +248,11 @@ fn dashboard(st: State<'_, AppState>) -> Cmd<Value> {
     with_open(&st, |conn, _key, _| {
         let count = |sql: &str| -> i64 { conn.query_row(sql, [], |r| r.get(0)).unwrap_or(0) };
         let last_backup: Option<String> = conn
-            .query_row("SELECT value FROM app_settings WHERE key = 'last_backup_at'", [], |r| r.get(0))
+            .query_row(
+                "SELECT value FROM app_settings WHERE key = 'last_backup_at'",
+                [],
+                |r| r.get(0),
+            )
             .ok();
         Ok(json!({
             "drafts": count("SELECT COUNT(*) FROM clinical_entries WHERE deleted_at IS NULL AND status = 'rascunho'")
@@ -270,6 +299,10 @@ fn settings_set(st: State<'_, AppState>, key: String, value: String) -> Cmd<()> 
         "auto_backup_days",
         "auto_backup_keep",
         "auto_backup_last",
+        "agenda_hora_inicio",
+        "agenda_hora_fim",
+        "agenda_lembrete_minutos",
+        "agenda_mostrar_nome_notificacao",
     ];
     if !allowed.contains(&key.as_str()) {
         return Err("Configuração desconhecida.".into());
@@ -300,14 +333,52 @@ fn attachment_add(
         if restricted.unwrap_or(false) && !inner.restricted_ok() {
             return Err("Área restrita bloqueada.".into());
         }
-        attachments::add(conn, key, &dir, &owner_kind, &owner_id, &src_path, restricted.unwrap_or(false))
+        attachments::add(
+            conn,
+            key,
+            &dir,
+            &owner_kind,
+            &owner_id,
+            &src_path,
+            restricted.unwrap_or(false),
+        )
     })
 }
 
 #[tauri::command]
 fn attachment_export(st: State<'_, AppState>, id: String, dest_path: String) -> Cmd<()> {
     let dir = st.attachments_dir();
-    with_open(&st, |conn, key, _| attachments::export_to(conn, key, &dir, &id, &dest_path))
+    with_open(&st, |conn, key, _| {
+        attachments::export_to(conn, key, &dir, &id, &dest_path)
+    })
+}
+
+/// Lê um arquivo escolhido pelo usuário (importação de agenda), em modo
+/// **somente leitura** — o original nunca é alterado. Devolve bytes em base64
+/// e o hash do conteúdo, usado para detectar reimportação do mesmo arquivo.
+#[tauri::command]
+fn read_import_file(st: State<'_, AppState>, src_path: String) -> Cmd<Value> {
+    {
+        let inner = st.inner.lock().map_err(|_| "Erro interno.")?;
+        inner.require_key()?;
+    }
+    let meta = std::fs::metadata(&src_path).map_err(|_| "Arquivo não encontrado.")?;
+    if meta.len() > 20 * 1024 * 1024 {
+        return Err("Arquivo maior que 20 MB.".into());
+    }
+    let bytes = std::fs::read(&src_path).map_err(|_| "Não foi possível ler o arquivo.")?;
+    let hash = blake3::hash(&bytes).to_hex().to_string();
+    let nome = std::path::Path::new(&src_path)
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or("arquivo")
+        .to_string();
+    Ok(json!({
+        "filename": nome,
+        "hash": hash,
+        "size": meta.len(),
+        "base64": base64::engine::general_purpose::STANDARD.encode(&bytes),
+    }))
 }
 
 /// Grava um arquivo (ex.: PDF de exportação) escolhido pelo usuário via diálogo.
@@ -372,18 +443,20 @@ fn backup_auto_run(st: State<'_, AppState>) -> Cmd<Option<String>> {
     let dir = st.attachments_dir();
     with_open(&st, |conn, key, _| {
         let get = |k: &str| -> Option<String> {
-            conn.query_row(
-                "SELECT value FROM app_settings WHERE key = ?1",
-                [k],
-                |r| r.get::<_, String>(0),
-            )
+            conn.query_row("SELECT value FROM app_settings WHERE key = ?1", [k], |r| {
+                r.get::<_, String>(0)
+            })
             .ok()
         };
         let Some(folder) = get("auto_backup_dir").filter(|s| !s.is_empty()) else {
             return Ok(None);
         };
-        let every_days: i64 = get("auto_backup_days").and_then(|v| v.parse().ok()).unwrap_or(1);
-        let keep: usize = get("auto_backup_keep").and_then(|v| v.parse().ok()).unwrap_or(10);
+        let every_days: i64 = get("auto_backup_days")
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(1);
+        let keep: usize = get("auto_backup_keep")
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(10);
 
         // já fez hoje (ou dentro do intervalo)?
         if let Some(last) = get("auto_backup_last") {
@@ -442,7 +515,12 @@ fn backup_restore(st: State<'_, AppState>, src_path: String) -> Cmd<()> {
     // fecha conexão atual antes de trocar o arquivo
     inner.conn = None;
     inner.lock_session();
-    let res = backup::restore(&st.data_dir, &st.db_path(), &st.attachments_dir(), &src_path);
+    let res = backup::restore(
+        &st.data_dir,
+        &st.db_path(),
+        &st.attachments_dir(),
+        &src_path,
+    );
     // reabre banco (restaurado ou original) e recarrega a chave local
     let conn = db::open(&st.db_path()).map_err(|_| "Erro ao reabrir banco.")?;
     db::migrate(&conn).map_err(|_| "Erro ao migrar banco.")?;
@@ -456,7 +534,12 @@ fn backup_restore(st: State<'_, AppState>, src_path: String) -> Cmd<()> {
 }
 
 #[tauri::command]
-fn export_log(st: State<'_, AppState>, export_type: String, target_kind: String, target_id: Option<String>) -> Cmd<()> {
+fn export_log(
+    st: State<'_, AppState>,
+    export_type: String,
+    target_kind: String,
+    target_id: Option<String>,
+) -> Cmd<()> {
     with_open(&st, |conn, key, _| {
         entities::create(
             conn,
@@ -465,13 +548,24 @@ fn export_log(st: State<'_, AppState>, export_type: String, target_kind: String,
             &json!({ "export_type": export_type, "target_kind": target_kind, "target_id": target_id }),
             false,
         )?;
-        audit::log(conn, "export", &target_kind, target_id.as_deref(), Some(&export_type));
+        audit::log(
+            conn,
+            "export",
+            &target_kind,
+            target_id.as_deref(),
+            Some(&export_type),
+        );
         Ok(())
     })
 }
 
 #[tauri::command]
-fn audit_list(st: State<'_, AppState>, limit: Option<i64>, offset: Option<i64>, event_type: Option<String>) -> Cmd<Vec<audit::AuditEvent>> {
+fn audit_list(
+    st: State<'_, AppState>,
+    limit: Option<i64>,
+    offset: Option<i64>,
+    event_type: Option<String>,
+) -> Cmd<Vec<audit::AuditEvent>> {
     with_open(&st, |conn, _key, _| {
         audit::list(conn, limit.unwrap_or(200), offset.unwrap_or(0), event_type)
     })
@@ -561,6 +655,7 @@ pub fn run() {
             attachment_export,
             attachment_preview,
             write_export_file,
+            read_import_file,
             backup_create,
             backup_auto_run,
             backup_restore,

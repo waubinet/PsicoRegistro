@@ -80,6 +80,29 @@ erDiagram
 | `record_participants` | `record_id`, `record_kind` | nome, função, meio de contato, combinações |
 | `referrals` | `student_id`, `school_id`, `status`, `referral_date`, `area`, `next_check_date` | destino, motivo, comunicação, retorno, resultado |
 
+### Agenda (migração `0002_agenda`)
+
+Migração **puramente aditiva**: cria tabelas novas e índices, sem tocar em dados existentes.
+
+| Tabela | Colunas em claro | Cifrado |
+|---|---|---|
+| `agenda_events` | `event_context`, `event_type`, `status`, `event_date`, `start_at`, `end_at`, `patient_id`, `clinical_case_id`, `student_id`, `school_id`, `class_id`, `referral_id`, `clinical_entry_id`, `school_record_id`, `recurrence_id`, `import_batch_id`, `neuro_stage`, `origin` | título, local, observação administrativa |
+| `agenda_recurrences` | `frequency`, `interval_n`, `days_of_week`, `start_date`, `end_date`, `count_n` | — |
+| `agenda_imports` | `source_hash`, `imported_at`, `total_rows`, `imported_rows`, `ignored_rows`, `error_rows` | nome do arquivo |
+| `person_links` | `student_id`, `patient_id` | — (vínculo sempre explícito) |
+| `agenda_absences` | `kind`, `start_date`, `end_date` | descrição |
+
+**Integridade**: excluir um evento nunca exclui paciente, estudante, escola ou registro. Arquivar
+uma pessoa preserva o histórico. `clinical_entry_id` / `school_record_id` mantêm o vínculo do
+registro criado a partir do compromisso.
+
+**Privacidade**: a agenda guarda só dado administrativo — nunca relato, hipótese diagnóstica,
+resultado de teste ou escore.
+
+Índices: `idx_agenda_data`, `idx_agenda_inicio`, `idx_agenda_paciente`, `idx_agenda_estudante`,
+`idx_agenda_escola`, `idx_agenda_caso`, `idx_agenda_recorrencia`, `idx_agenda_status`,
+`idx_person_links_*`, `idx_ausencias`.
+
 ### Suporte
 | Tabela | Colunas em claro | Cifrado |
 |---|---|---|

@@ -59,7 +59,9 @@ pub fn encrypt(key: &[u8; KEY_LEN], plaintext: &[u8]) -> Result<Vec<u8>, CryptoE
     let cipher = XChaCha20Poly1305::new(key.into());
     let nonce_bytes = random_bytes(NONCE_LEN);
     let nonce = XNonce::from_slice(&nonce_bytes);
-    let ct = cipher.encrypt(nonce, plaintext).map_err(|_| CryptoError::Aead)?;
+    let ct = cipher
+        .encrypt(nonce, plaintext)
+        .map_err(|_| CryptoError::Aead)?;
     let mut out = nonce_bytes;
     out.extend_from_slice(&ct);
     Ok(out)

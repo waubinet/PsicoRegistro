@@ -39,24 +39,114 @@ struct Fonte {
 }
 
 const FONTES: &[Fonte] = &[
-    Fonte { tabela: "patients", rotulo: "Paciente", nome: &["full_name", "social_name"],
-        extras: &["cpf", "phone", "email", "tags", "occupation", "institution", "admin_notes"], data: "created_at" },
-    Fonte { tabela: "students", rotulo: "Estudante", nome: &["full_name", "social_name"],
-        extras: &["grade", "class_name", "enrollment", "tags", "homeroom_teacher", "demand_origin", "notes"], data: "created_at" },
-    Fonte { tabela: "schools", rotulo: "Escola", nome: &["name"],
-        extras: &["address", "principal", "pedagogical_coordinator", "inep_code", "phone", "notes"], data: "created_at" },
-    Fonte { tabela: "clinical_cases", rotulo: "Caso clínico", nome: &["initial_demand"],
-        extras: &["goals", "context", "notes", "demand_origin"], data: "start_date" },
-    Fonte { tabela: "clinical_entries", rotulo: "Evolução", nome: &["theme"],
-        extras: &["summary", "evolution", "session_objective", "procedures", "conduct", "tags", "author"], data: "entry_date" },
-    Fonte { tabela: "school_records", rotulo: "Registro escolar", nome: &["objective"],
-        extras: &["situation", "performed", "guidance", "requester", "participants", "immediate_result"], data: "record_date" },
-    Fonte { tabela: "referrals", rotulo: "Encaminhamento", nome: &["destination"],
-        extras: &["reason", "result", "notes", "guardian_informed"], data: "referral_date" },
-    Fonte { tabela: "institutional_school_records", rotulo: "Ocorrência/registro institucional", nome: &["objective"],
-        extras: &["narrative", "demand", "activity", "participants", "results", "situation"], data: "record_date" },
-    Fonte { tabela: "reminders", rotulo: "Pendência", nome: &["title"],
-        extras: &["description"], data: "due_date" },
+    Fonte {
+        tabela: "patients",
+        rotulo: "Paciente",
+        nome: &["full_name", "social_name"],
+        extras: &[
+            "cpf",
+            "phone",
+            "email",
+            "tags",
+            "occupation",
+            "institution",
+            "admin_notes",
+        ],
+        data: "created_at",
+    },
+    Fonte {
+        tabela: "students",
+        rotulo: "Estudante",
+        nome: &["full_name", "social_name"],
+        extras: &[
+            "grade",
+            "class_name",
+            "enrollment",
+            "tags",
+            "homeroom_teacher",
+            "demand_origin",
+            "notes",
+        ],
+        data: "created_at",
+    },
+    Fonte {
+        tabela: "schools",
+        rotulo: "Escola",
+        nome: &["name"],
+        extras: &[
+            "address",
+            "principal",
+            "pedagogical_coordinator",
+            "inep_code",
+            "phone",
+            "notes",
+        ],
+        data: "created_at",
+    },
+    Fonte {
+        tabela: "clinical_cases",
+        rotulo: "Caso clínico",
+        nome: &["initial_demand"],
+        extras: &["goals", "context", "notes", "demand_origin"],
+        data: "start_date",
+    },
+    Fonte {
+        tabela: "clinical_entries",
+        rotulo: "Evolução",
+        nome: &["theme"],
+        extras: &[
+            "summary",
+            "evolution",
+            "session_objective",
+            "procedures",
+            "conduct",
+            "tags",
+            "author",
+        ],
+        data: "entry_date",
+    },
+    Fonte {
+        tabela: "school_records",
+        rotulo: "Registro escolar",
+        nome: &["objective"],
+        extras: &[
+            "situation",
+            "performed",
+            "guidance",
+            "requester",
+            "participants",
+            "immediate_result",
+        ],
+        data: "record_date",
+    },
+    Fonte {
+        tabela: "referrals",
+        rotulo: "Encaminhamento",
+        nome: &["destination"],
+        extras: &["reason", "result", "notes", "guardian_informed"],
+        data: "referral_date",
+    },
+    Fonte {
+        tabela: "institutional_school_records",
+        rotulo: "Ocorrência/registro institucional",
+        nome: &["objective"],
+        extras: &[
+            "narrative",
+            "demand",
+            "activity",
+            "participants",
+            "results",
+            "situation",
+        ],
+        data: "record_date",
+    },
+    Fonte {
+        tabela: "reminders",
+        rotulo: "Pendência",
+        nome: &["title"],
+        extras: &["description"],
+        data: "due_date",
+    },
 ];
 
 pub fn global(conn: &Connection, key: &[u8; 32], query: &str) -> Result<Vec<Value>, String> {
@@ -92,9 +182,18 @@ pub fn global(conn: &Connection, key: &[u8; 32], query: &str) -> Result<Vec<Valu
             // contexto administrativo — nunca conteúdo clínico
             let detalhe = match f.tabela {
                 "students" => {
-                    let escola = r["school_id"].as_str().and_then(|s| escolas.get(s)).cloned().unwrap_or_default();
+                    let escola = r["school_id"]
+                        .as_str()
+                        .and_then(|s| escolas.get(s))
+                        .cloned()
+                        .unwrap_or_default();
                     let serie = r["grade"].as_str().unwrap_or("");
-                    [serie, escola.as_str()].iter().filter(|s| !s.is_empty()).cloned().collect::<Vec<_>>().join(" · ")
+                    [serie, escola.as_str()]
+                        .iter()
+                        .filter(|s| !s.is_empty())
+                        .cloned()
+                        .collect::<Vec<_>>()
+                        .join(" · ")
                 }
                 "school_records" | "institutional_school_records" | "referrals" => r["school_id"]
                     .as_str()
@@ -153,11 +252,25 @@ mod tests {
         db::migrate(&c).unwrap();
         let key: [u8; 32] = crypto::random_bytes(32).try_into().unwrap();
 
-        let escola = entities::create(&c, &key, "schools", &json!({"name": "Escola Modelo"}), false).unwrap();
-        entities::create(&c, &key, "students", &json!({
-            "school_id": escola, "full_name": "Estudante Teste",
-            "grade": "3º ano", "tags": "alfabetizacao"
-        }), false).unwrap();
+        let escola = entities::create(
+            &c,
+            &key,
+            "schools",
+            &json!({"name": "Escola Modelo"}),
+            false,
+        )
+        .unwrap();
+        entities::create(
+            &c,
+            &key,
+            "students",
+            &json!({
+                "school_id": escola, "full_name": "Estudante Teste",
+                "grade": "3º ano", "tags": "alfabetizacao"
+            }),
+            false,
+        )
+        .unwrap();
 
         // acha por marcador (campo extra), não só por nome
         let r = global(&c, &key, "alfabetizacao").unwrap();

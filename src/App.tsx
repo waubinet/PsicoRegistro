@@ -10,6 +10,7 @@ import { SchoolsList } from "./pages/SchoolsList";
 import { SchoolDetail } from "./pages/SchoolDetail";
 import { StudentDetail } from "./pages/StudentDetail";
 import { ReferralsPage } from "./pages/ReferralsPage";
+import { AgendaPage } from "./pages/AgendaPage";
 import { RemindersPage } from "./pages/RemindersPage";
 import { SearchPage } from "./pages/SearchPage";
 import { StatsPage } from "./pages/StatsPage";
@@ -47,6 +48,7 @@ export function App() {
             <Route path="escolas/:id" element={<SchoolDetail />} />
             <Route path="estudantes/:id" element={<StudentDetail />} />
             <Route path="encaminhamentos" element={<ReferralsPage />} />
+            <Route path="agenda" element={<AgendaPage />} />
             <Route path="pendencias" element={<RemindersPage />} />
             <Route path="pesquisa" element={<SearchPage />} />
             <Route path="estatisticas" element={<StatsPage />} />

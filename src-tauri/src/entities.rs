@@ -32,17 +32,16 @@ fn decrypt_data(key: &[u8; 32], blob: &[u8]) -> Result<Value, String> {
 }
 
 /// Monta o objeto retornado ao frontend: id + colunas puras + dados decifrados + metadados.
-fn row_to_json(
-    t: &TableSpec,
-    key: &[u8; 32],
-    row: &rusqlite::Row,
-) -> Result<Value, String> {
+fn row_to_json(t: &TableSpec, key: &[u8; 32], row: &rusqlite::Row) -> Result<Value, String> {
     let mut obj = Map::new();
     let id: String = row.get(0).map_err(|_| "Erro de leitura.")?;
     obj.insert("id".into(), Value::String(id));
     for (i, col) in t.plain.iter().enumerate() {
         let v: Option<String> = row.get(1 + i).map_err(|_| "Erro de leitura.")?;
-        obj.insert((*col).to_string(), v.map(Value::String).unwrap_or(Value::Null));
+        obj.insert(
+            (*col).to_string(),
+            v.map(Value::String).unwrap_or(Value::Null),
+        );
     }
     let n = t.plain.len();
     let blob: Vec<u8> = row.get(1 + n).map_err(|_| "Erro de leitura.")?;
@@ -59,7 +58,10 @@ fn row_to_json(
     obj.insert("is_demo".into(), Value::Bool(is_demo != 0));
     obj.insert("created_at".into(), Value::String(created));
     obj.insert("updated_at".into(), Value::String(updated));
-    obj.insert("deleted_at".into(), deleted.map(Value::String).unwrap_or(Value::Null));
+    obj.insert(
+        "deleted_at".into(),
+        deleted.map(Value::String).unwrap_or(Value::Null),
+    );
     Ok(Value::Object(obj))
 }
 
@@ -95,9 +97,7 @@ pub fn list(
     sql.push_str(" ORDER BY created_at DESC");
     let mut stmt = conn.prepare(&sql).map_err(|_| "Erro na consulta.")?;
     let rows = stmt
-        .query_map(params_from_iter(params), |r| {
-            Ok(row_to_json(t, key, r))
-        })
+        .query_map(params_from_iter(params), |r| Ok(row_to_json(t, key, r)))
         .map_err(|_| "Erro na consulta.")?;
     // Uma linha que não decifra (ex.: gravada com uma chave anterior) é ignorada,
     // para não inviabilizar a listagem inteira.
@@ -118,12 +118,24 @@ pub fn get(conn: &Connection, key: &[u8; 32], table: &str, id: &str) -> Result<V
 }
 
 /// Separa o objeto recebido em colunas puras (allowlist) e o restante (cifrado).
-fn split_payload(t: &TableSpec, data: &Value) -> Result<(Vec<(String, Option<String>)>, Value), String> {
+fn split_payload(
+    t: &TableSpec,
+    data: &Value,
+) -> Result<(Vec<(String, Option<String>)>, Value), String> {
     let obj = data.as_object().ok_or("Dados inválidos.")?;
     let mut plain = Vec::new();
     let mut rest = Map::new();
     for (k, v) in obj {
-        if ["id", "is_demo", "created_at", "updated_at", "deleted_at", "data_enc"].contains(&k.as_str()) {
+        if [
+            "id",
+            "is_demo",
+            "created_at",
+            "updated_at",
+            "deleted_at",
+            "data_enc",
+        ]
+        .contains(&k.as_str())
+        {
             continue;
         }
         if t.plain.contains(&k.as_str()) {
@@ -233,7 +245,12 @@ pub fn update(
     sets.push(format!("updated_at = ?{}", idx));
     params.push(Box::new(now_iso()));
     idx += 1;
-    let sql = format!("UPDATE {} SET {} WHERE id = ?{}", t.name, sets.join(", "), idx);
+    let sql = format!(
+        "UPDATE {} SET {} WHERE id = ?{}",
+        t.name,
+        sets.join(", "),
+        idx
+    );
     params.push(Box::new(id.to_string()));
     let n = conn
         .execute(&sql, params_from_iter(params.iter().map(|b| b.as_ref())))
@@ -252,7 +269,10 @@ pub fn set_status(conn: &Connection, table: &str, id: &str, status: &str) -> Res
     check_col(t, "status")?;
     let n = conn
         .execute(
-            &format!("UPDATE {} SET status = ?1, updated_at = ?2 WHERE id = ?3", t.name),
+            &format!(
+                "UPDATE {} SET status = ?1, updated_at = ?2 WHERE id = ?3",
+                t.name
+            ),
             rusqlite::params![status, now_iso(), id],
         )
         .map_err(|_| "Erro ao atualizar situação.".to_string())?;
@@ -288,7 +308,10 @@ pub fn restore(conn: &Connection, table: &str, id: &str) -> Result<(), String> {
     let t = table_spec(table)?;
     let n = conn
         .execute(
-            &format!("UPDATE {} SET deleted_at = NULL, updated_at = ?1 WHERE id = ?2", t.name),
+            &format!(
+                "UPDATE {} SET deleted_at = NULL, updated_at = ?1 WHERE id = ?2",
+                t.name
+            ),
             rusqlite::params![now_iso(), id],
         )
         .map_err(|_| "Erro ao restaurar registro.".to_string())?;
@@ -348,13 +371,22 @@ mod tests {
         .unwrap();
         // nome não pode estar em texto puro no banco
         let blob: Vec<u8> = c
-            .query_row("SELECT data_enc FROM patients WHERE id = ?1", [&id], |r| r.get(0))
+            .query_row("SELECT data_enc FROM patients WHERE id = ?1", [&id], |r| {
+                r.get(0)
+            })
             .unwrap();
         assert!(!String::from_utf8_lossy(&blob).contains("Paciente Exemplo A"));
         let got = get(&c, &key, "patients", &id).unwrap();
         assert_eq!(got["full_name"], "Paciente Exemplo A");
         assert_eq!(got["status"], "ativo");
-        update(&c, &key, "patients", &id, &json!({"status": "inativo", "full_name": "Paciente Exemplo A"})).unwrap();
+        update(
+            &c,
+            &key,
+            "patients",
+            &id,
+            &json!({"status": "inativo", "full_name": "Paciente Exemplo A"}),
+        )
+        .unwrap();
         let got = get(&c, &key, "patients", &id).unwrap();
         assert_eq!(got["status"], "inativo");
     }
@@ -385,15 +417,28 @@ mod tests {
         )
         .unwrap();
         set_status(&c, "clinical_entries", &id, "finalizado").unwrap();
-        let err = update(&c, &key, "clinical_entries", &id, &json!({"summary": "alterado"})).unwrap_err();
+        let err = update(
+            &c,
+            &key,
+            "clinical_entries",
+            &id,
+            &json!({"summary": "alterado"}),
+        )
+        .unwrap_err();
         assert!(err.contains("adendo"));
     }
 
     #[test]
     fn filter_column_allowlist() {
         let (c, key) = setup();
-        let err = list(&c, &key, "patients", &[("nome; DROP TABLE".into(), "x".into())], false)
-            .unwrap_err();
+        let err = list(
+            &c,
+            &key,
+            "patients",
+            &[("nome; DROP TABLE".into(), "x".into())],
+            false,
+        )
+        .unwrap_err();
         assert!(err.contains("inválida"));
         assert!(list(&c, &key, "nao_existe", &[], false).is_err());
     }
@@ -401,20 +446,45 @@ mod tests {
     #[test]
     fn rows_from_another_key_are_skipped_not_fatal() {
         let (c, key) = setup();
-        create(&c, &key, "patients", &json!({"full_name": "Legível"}), false).unwrap();
+        create(
+            &c,
+            &key,
+            "patients",
+            &json!({"full_name": "Legível"}),
+            false,
+        )
+        .unwrap();
         // registro gravado com outra chave (ex.: chave anterior do app)
         let other: [u8; 32] = crypto::random_bytes(32).try_into().unwrap();
-        create(&c, &other, "patients", &json!({"full_name": "Ilegível"}), false).unwrap();
+        create(
+            &c,
+            &other,
+            "patients",
+            &json!({"full_name": "Ilegível"}),
+            false,
+        )
+        .unwrap();
 
         let rows = list(&c, &key, "patients", &[], false).unwrap();
-        assert_eq!(rows.len(), 1, "a linha ilegível deve ser ignorada, não quebrar a lista");
+        assert_eq!(
+            rows.len(),
+            1,
+            "a linha ilegível deve ser ignorada, não quebrar a lista"
+        );
         assert_eq!(rows[0]["full_name"], "Legível");
     }
 
     #[test]
     fn audit_has_no_content() {
         let (c, key) = setup();
-        create(&c, &key, "patients", &json!({"full_name": "Sigiloso"}), false).unwrap();
+        create(
+            &c,
+            &key,
+            "patients",
+            &json!({"full_name": "Sigiloso"}),
+            false,
+        )
+        .unwrap();
         let count: i64 = c
             .query_row(
                 "SELECT COUNT(*) FROM audit_events WHERE event_type = 'create'",

@@ -97,8 +97,7 @@ fn decrypt_backup(raw: &[u8]) -> Result<(Header, Vec<u8>), String> {
         .iter()
         .position(|&b| b == b'\n')
         .ok_or("Backup corrompido.")?;
-    let header: Header =
-        serde_json::from_slice(&rest[..nl]).map_err(|_| "Backup corrompido.")?;
+    let header: Header = serde_json::from_slice(&rest[..nl]).map_err(|_| "Backup corrompido.")?;
     let ct = &rest[nl + 1..];
     let master: [u8; 32] = unb64(&header.key)?
         .try_into()
@@ -237,4 +236,3 @@ mod tests {
         assert!(restore(dir.path(), &db_path, &att_dir, bkp.to_str().unwrap()).is_err());
     }
 }
-

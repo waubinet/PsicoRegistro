@@ -16,6 +16,7 @@ import { ViradaAnoLetivo } from "@/components/ViradaAnoLetivo";
 import { ExportDialog } from "@/components/ExportDialog";
 import { ReportDialog } from "@/components/ReportDialog";
 import { Timeline } from "@/components/Timeline";
+import { AgendaDaPessoa } from "@/components/agenda/AgendaDaPessoa";
 import { aberturaOcorrencia, PERIODOS } from "@/lib/dateExtenso";
 import { gerarOcorrenciaPDF } from "@/lib/docOcorrencia";
 import { writeFile } from "@/components/exportFile";
@@ -491,6 +492,8 @@ export function SchoolDetail() {
         students={students}
         onDone={load}
       />
+
+      <AgendaDaPessoa alvo={{ tipo: "escola", id }} titulo="Agenda desta escola" />
 
       <section className="mt-6">
         <h2 className="mb-2 text-xl font-semibold">Linha do tempo da escola</h2>
