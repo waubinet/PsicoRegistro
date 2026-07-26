@@ -79,6 +79,7 @@ export const SCHOOL_ACTIVITY_TYPES: Option[] = [
   { value: "psicoeducativa", label: "Atividade psicoeducativa" },
   { value: "mediacao", label: "Mediação" },
   { value: "encaminhamento", label: "Encaminhamento" },
+  { value: "ficha_encaminhamento", label: "Ficha de encaminhamento" },
   { value: "retorno", label: "Retorno" },
   { value: "acompanhamento", label: "Acompanhamento" },
   { value: "outro", label: "Outro" },

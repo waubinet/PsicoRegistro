@@ -16,6 +16,7 @@ import { FormBuilder, type FieldDef } from "@/components/FormBuilder";
 import { ExportDialog, type ExportSection } from "@/components/ExportDialog";
 import { ReportDialog } from "@/components/ReportDialog";
 import { AgendaDaPessoa } from "@/components/agenda/AgendaDaPessoa";
+import { FichaEncaminhamento } from "@/components/school/FichaEncaminhamento";
 import { relatorioAluno } from "@/lib/schoolReport";
 import { Timeline } from "@/components/Timeline";
 import { ConfirmDialog, EmptyState, Loading, Modal, PageHeader, useToast } from "@/components/ui";
@@ -113,6 +114,8 @@ export function StudentDetail() {
   const [referralOpen, setReferralOpen] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
+  const [fichaOpen, setFichaOpen] = useState(false);
+  const [escola, setEscola] = useState<Entity | null>(null);
   const nav = useNavigate();
   const toast = useToast();
 
@@ -120,6 +123,9 @@ export function StudentDetail() {
     api.get("students", id).then(setStudent).catch(() => setStudent(null));
     api.list("school_records", [["student_id", id]]).then(setRecords).catch(() => undefined);
     api.list("referrals", [["student_id", id]]).then(setReferrals).catch(() => undefined);
+    api.get("students", id).then((st) => {
+      if (st.school_id) api.get("schools", String(st.school_id)).then(setEscola).catch(() => undefined);
+    }).catch(() => undefined);
   }, [id]);
 
   useEffect(load, [load]);
@@ -165,6 +171,9 @@ export function StudentDetail() {
       <PageHeader title={String(student.full_name)}>
         <button className="btn-secondary" onClick={() => nav(`/escolas/${student.school_id}`)}>
           ← Escola
+        </button>
+        <button className="btn-secondary" onClick={() => setFichaOpen(true)}>
+          Ficha de encaminhamento
         </button>
         <button className="btn-secondary" onClick={() => setReportOpen(true)}>
           Relatório por período
@@ -311,6 +320,16 @@ export function StudentDetail() {
           targetKind="students"
           targetId={id}
           sections={historySections}
+        />
+      )}
+
+      {fichaOpen && (
+        <FichaEncaminhamento
+          open
+          onClose={() => setFichaOpen(false)}
+          estudante={student}
+          escola={escola}
+          onSalvo={load}
         />
       )}
 
