@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { NavLink, Outlet } from "react-router-dom";
+import { ServicoLembretes } from "./agenda/ServicoLembretes";
+import { Atalhos } from "./Atalhos";
 
 const NAV = [
   { to: "/", label: "Painel", exact: true },
@@ -22,6 +24,8 @@ export function Layout() {
 
   return (
     <div className="flex min-h-screen">
+      <ServicoLembretes />
+      <Atalhos />
       <aside
         className={`${collapsed ? "w-14" : "w-64"} shrink-0 border-r border-base-200 bg-base-100 transition-all`}
       >

@@ -4,6 +4,7 @@ import { FormBuilder, type FieldDef } from "@/components/FormBuilder";
 import { ConfirmDialog, PageHeader, useToast } from "@/components/ui";
 import { UpdateChecker } from "@/components/UpdateChecker";
 import { useSession } from "@/store/session";
+import { ANTECEDENCIAS, garantirPermissao } from "@/lib/lembretes";
 
 const PROFILE_FIELDS: FieldDef[] = [
   { name: "name", label: "Nome do profissional", colSpan: 2 },
@@ -20,6 +21,10 @@ export function SettingsPage() {
   const [folhaCabecalho, setFolhaCabecalho] = useState("");
   const [folhaSubtitulo, setFolhaSubtitulo] = useState("");
   const [pastaManuais, setPastaManuais] = useState("");
+  const [lembreteMin, setLembreteMin] = useState("0");
+  const [mostrarNome, setMostrarNome] = useState(false);
+  const [horaInicio, setHoraInicio] = useState(7);
+  const [horaFim, setHoraFim] = useState(22);
   const [confirmClear, setConfirmClear] = useState(false);
   const toast = useToast();
 
@@ -32,6 +37,10 @@ export function SettingsPage() {
         setFolhaCabecalho(cfg.folha_cabecalho ?? "");
         setFolhaSubtitulo(cfg.folha_subtitulo ?? "");
         setPastaManuais(cfg.pasta_manuais ?? "");
+        setLembreteMin(cfg.agenda_lembrete_minutos ?? "0");
+        setMostrarNome(cfg.agenda_mostrar_nome_notificacao === "1");
+        setHoraInicio(Number(cfg.agenda_hora_inicio) || 7);
+        setHoraFim(Number(cfg.agenda_hora_fim) || 22);
       })
       .catch(() => undefined);
   }, []);
@@ -92,6 +101,98 @@ export function SettingsPage() {
             toast("ok", "Cabeçalho salvo.");
           }}
         />
+      </section>
+
+      <section className="card mb-4">
+        <h2 className="mb-3 font-semibold">Agenda</h2>
+        <div className="mb-3 grid gap-4 md:grid-cols-3">
+          <div>
+            <label className="label" htmlFor="ag-ini">
+              Hora inicial da grade
+            </label>
+            <input
+              id="ag-ini"
+              type="number"
+              min={0}
+              max={23}
+              className="input"
+              value={horaInicio}
+              onChange={(e) => {
+                const v = Math.min(23, Math.max(0, Number(e.target.value)));
+                setHoraInicio(v);
+                void api.settingsSet("agenda_hora_inicio", String(v));
+              }}
+            />
+          </div>
+          <div>
+            <label className="label" htmlFor="ag-fim">
+              Hora final da grade
+            </label>
+            <input
+              id="ag-fim"
+              type="number"
+              min={1}
+              max={24}
+              className="input"
+              value={horaFim}
+              onChange={(e) => {
+                const v = Math.min(24, Math.max(1, Number(e.target.value)));
+                setHoraFim(v);
+                void api.settingsSet("agenda_hora_fim", String(v));
+              }}
+            />
+          </div>
+          <div>
+            <label className="label" htmlFor="ag-lembrete">
+              Lembrete antes do atendimento
+            </label>
+            <select
+              id="ag-lembrete"
+              className="input"
+              value={lembreteMin}
+              onChange={async (e) => {
+                setLembreteMin(e.target.value);
+                await api.settingsSet("agenda_lembrete_minutos", e.target.value);
+                if (e.target.value !== "0") {
+                  const ok = await garantirPermissao();
+                  toast(
+                    ok ? "ok" : "error",
+                    ok
+                      ? "Lembretes ativados."
+                      : "O Windows negou a permissão de notificação.",
+                  );
+                }
+              }}
+            >
+              {ANTECEDENCIAS.map((a) => (
+                <option key={a.value} value={a.value}>
+                  {a.label}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+        <label className="flex items-start gap-2">
+          <input
+            type="checkbox"
+            className="mt-1"
+            checked={mostrarNome}
+            onChange={(e) => {
+              setMostrarNome(e.target.checked);
+              void api.settingsSet(
+                "agenda_mostrar_nome_notificacao",
+                e.target.checked ? "1" : "0",
+              );
+            }}
+          />
+          <span>
+            Mostrar o nome da pessoa na notificação
+            <span className="block text-sm text-base-700">
+              Desativado, a notificação diz apenas “Você tem um atendimento às 14:00” — outras
+              pessoas que vejam sua tela não descobrem quem você atende.
+            </span>
+          </span>
+        </label>
       </section>
 
       <section className="card mb-4">

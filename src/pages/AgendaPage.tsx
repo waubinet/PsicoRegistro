@@ -3,7 +3,7 @@
  * Visualizações: Hoje, Dia, Semana (principal), Mês e Lista.
  */
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { agenda, weekSummary, type AgendaEvent } from "@/lib/agenda";
 import { EVENT_STATUS, eventTypesFor, STATUS_STYLE } from "@/lib/agendaOptions";
 import { addDays, monthGrid, parseISO, todayISO, weekDays } from "@/lib/agendaTime";
@@ -30,6 +30,7 @@ export function AgendaPage() {
   const [importarAberto, setImportarAberto] = useState(false);
   const [faixa, setFaixa] = useState({ inicio: 7, fim: 22 });
   const nav = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const toast = useToast();
 
   const carregar = useCallback(() => {
@@ -51,6 +52,17 @@ export function AgendaPage() {
   }, []);
 
   const hoje = todayISO();
+
+  // Ctrl+N (atalho global) chega como ?novo=1
+  useEffect(() => {
+    if (searchParams.get("novo") === "1") {
+      setSelecionado(null);
+      setSeed({ date: hoje, start: "08:00" });
+      setEditorAberto(true);
+      setSearchParams({}, { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   /** Rótulo curto do evento na grade — nome + tipo, nunca conteúdo clínico. */
   const rotulo = useCallback((e: AgendaEvent) => {
