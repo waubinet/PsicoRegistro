@@ -15,6 +15,7 @@ import { gerarFolhaAgendaPDF } from "@/lib/docAgendaDiaria";
 import { writeFile } from "@/components/exportFile";
 import { EventEditor } from "@/components/agenda/EventEditor";
 import { ImportarAgenda } from "@/components/agenda/ImportarAgenda";
+import { Ausencias } from "@/components/agenda/Ausencias";
 import { WeekGrid } from "@/components/agenda/WeekGrid";
 import { EmptyState, PageHeader, useToast } from "@/components/ui";
 
@@ -28,6 +29,7 @@ export function AgendaPage() {
   const [selecionado, setSelecionado] = useState<AgendaEvent | null>(null);
   const [seed, setSeed] = useState<{ date: string; start: string } | undefined>();
   const [importarAberto, setImportarAberto] = useState(false);
+  const [ausenciasAberto, setAusenciasAberto] = useState(false);
   const [faixa, setFaixa] = useState({ inicio: 7, fim: 22 });
   const nav = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -234,6 +236,9 @@ export function AgendaPage() {
         >
           Imprimir folha do dia
         </button>
+        <button className="btn-secondary" onClick={() => setAusenciasAberto(true)}>
+          Férias e feriados
+        </button>
         <button className="btn-secondary" onClick={() => setImportarAberto(true)}>
           Importar agenda
         </button>
@@ -249,6 +254,12 @@ export function AgendaPage() {
         open={importarAberto}
         onClose={() => setImportarAberto(false)}
         onImported={carregar}
+      />
+
+      <Ausencias
+        open={ausenciasAberto}
+        onClose={() => setAusenciasAberto(false)}
+        onMudou={carregar}
       />
 
       {/* controles */}

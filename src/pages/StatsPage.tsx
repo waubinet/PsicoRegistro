@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import { ExportDialog } from "@/components/ExportDialog";
+import { currentYear, presetsForYear } from "@/lib/period";
+import { formatDateBR } from "@/lib/format";
 import { PageHeader } from "@/components/ui";
 
 type Group = { key: string; count: number };
@@ -42,15 +44,18 @@ export function StatsPage() {
   const [s, setS] = useState<Record<string, unknown> | null>(null);
   const [schoolNames, setSchoolNames] = useState<Record<string, string>>({});
   const [exportOpen, setExportOpen] = useState(false);
+  const [ano, setAno] = useState(currentYear());
+  const [de, setDe] = useState("");
+  const [ate, setAte] = useState("");
 
   useEffect(() => {
-    api.stats().then(setS).catch(() => undefined);
+    api.stats(de || undefined, ate || undefined).then(setS).catch(() => undefined);
     api.list("schools").then((rows) => {
       const m: Record<string, string> = {};
       rows.forEach((r) => (m[r.id] = String(r.name)));
       setSchoolNames(m);
     });
-  }, []);
+  }, [de, ate]);
 
   if (!s) return null;
   const g = (k: string) => (s[k] as Group[]) ?? [];
@@ -96,6 +101,59 @@ export function StatsPage() {
           ]}
         />
       )}
+
+      <div className="card mb-4">
+        <div className="flex flex-wrap items-end gap-3">
+          <div>
+            <label className="label" htmlFor="st-ano">Ano</label>
+            <input
+              id="st-ano"
+              type="number"
+              className="input max-w-[7rem]"
+              value={ano}
+              onChange={(e) => setAno(Number(e.target.value) || currentYear())}
+            />
+          </div>
+          <div className="flex flex-wrap gap-1">
+            {presetsForYear(ano).map((p) => (
+              <button
+                key={p.value}
+                className="btn-secondary !py-1 text-sm"
+                onClick={() => {
+                  setDe(p.from);
+                  setAte(p.to);
+                }}
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
+          <div>
+            <label className="label" htmlFor="st-de">De</label>
+            <input id="st-de" type="date" className="input" value={de} onChange={(e) => setDe(e.target.value)} />
+          </div>
+          <div>
+            <label className="label" htmlFor="st-ate">Até</label>
+            <input id="st-ate" type="date" className="input" value={ate} onChange={(e) => setAte(e.target.value)} />
+          </div>
+          <button
+            className="btn-secondary"
+            disabled={!de && !ate}
+            onClick={() => {
+              setDe("");
+              setAte("");
+            }}
+          >
+            Todo o histórico
+          </button>
+        </div>
+        <p className="mt-2 text-sm text-base-700">
+          {de || ate
+            ? `Período: ${de ? formatDateBR(de) : "início"} até ${ate ? formatDateBR(ate) : "hoje"}`
+            : "Mostrando todo o histórico."}
+        </p>
+      </div>
+
       <p className="mb-4 text-sm text-base-700">
         Relatórios agregados sem identificação nominal. Grupos com menos de {K_ANON} indivíduos são
         suprimidos para evitar reidentificação. Nenhum conteúdo clínico, nome, CPF, contato ou

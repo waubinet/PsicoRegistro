@@ -211,8 +211,26 @@ fn search_global(st: State<'_, AppState>, query: String) -> Cmd<Vec<Value>> {
 }
 
 #[tauri::command]
-fn stats_counts(st: State<'_, AppState>) -> Cmd<Value> {
+fn stats_counts(st: State<'_, AppState>, from: Option<String>, to: Option<String>) -> Cmd<Value> {
     with_open(&st, |conn, _key, _| {
+        // Filtro de período (opcional). Datas em ISO; vazio = todo o histórico.
+        // Interpolamos apenas valores já validados como data, nunca entrada livre.
+        let valida = |d: &Option<String>| -> Option<String> {
+            d.as_ref()
+                .map(|x| x.trim().to_string())
+                .filter(|x| x.len() == 10 && x.chars().all(|c| c.is_ascii_digit() || c == '-'))
+        };
+        let de = valida(&from);
+        let ate = valida(&to);
+        // devolve " AND <col> BETWEEN 'x' AND 'y'" quando houver período
+        let periodo = |col: &str| -> String {
+            match (&de, &ate) {
+                (Some(a), Some(b)) => format!(" AND {col} >= '{a}' AND {col} <= '{b}'"),
+                (Some(a), None) => format!(" AND {col} >= '{a}'"),
+                (None, Some(b)) => format!(" AND {col} <= '{b}'"),
+                (None, None) => String::new(),
+            }
+        };
         let count = |sql: &str| -> i64 { conn.query_row(sql, [], |r| r.get(0)).unwrap_or(0) };
         let group = |sql: &str| -> Vec<Value> {
             let mut out = Vec::new();
@@ -232,13 +250,13 @@ fn stats_counts(st: State<'_, AppState>) -> Cmd<Value> {
             "patients": count("SELECT COUNT(*) FROM patients WHERE deleted_at IS NULL"),
             "students": count("SELECT COUNT(*) FROM students WHERE deleted_at IS NULL"),
             "schools": count("SELECT COUNT(*) FROM schools WHERE deleted_at IS NULL AND status = 'ativa'"),
-            "entries_by_type": group("SELECT entry_type, COUNT(*) FROM clinical_entries WHERE deleted_at IS NULL GROUP BY entry_type"),
-            "school_by_activity": group("SELECT activity_type, COUNT(*) FROM school_records WHERE deleted_at IS NULL GROUP BY activity_type"),
-            "referrals_by_area": group("SELECT area, COUNT(*) FROM referrals WHERE deleted_at IS NULL GROUP BY area"),
-            "referrals_by_status": group("SELECT status, COUNT(*) FROM referrals WHERE deleted_at IS NULL GROUP BY status"),
+            "entries_by_type": group(&format!("SELECT entry_type, COUNT(*) FROM clinical_entries WHERE deleted_at IS NULL{} GROUP BY entry_type", periodo("entry_date"))),
+            "school_by_activity": group(&format!("SELECT activity_type, COUNT(*) FROM school_records WHERE deleted_at IS NULL{} GROUP BY activity_type", periodo("record_date"))),
+            "referrals_by_area": group(&format!("SELECT area, COUNT(*) FROM referrals WHERE deleted_at IS NULL{} GROUP BY area", periodo("referral_date"))),
+            "referrals_by_status": group(&format!("SELECT status, COUNT(*) FROM referrals WHERE deleted_at IS NULL{} GROUP BY status", periodo("referral_date"))),
             "students_by_school": group("SELECT school_id, COUNT(*) FROM students WHERE deleted_at IS NULL GROUP BY school_id"),
-            "entries_by_month": group("SELECT substr(entry_date,1,7), COUNT(*) FROM clinical_entries WHERE deleted_at IS NULL GROUP BY substr(entry_date,1,7) ORDER BY 1"),
-            "school_by_month": group("SELECT substr(record_date,1,7), COUNT(*) FROM school_records WHERE deleted_at IS NULL GROUP BY substr(record_date,1,7) ORDER BY 1"),
+            "entries_by_month": group(&format!("SELECT substr(entry_date,1,7), COUNT(*) FROM clinical_entries WHERE deleted_at IS NULL{} GROUP BY substr(entry_date,1,7) ORDER BY 1", periodo("entry_date"))),
+            "school_by_month": group(&format!("SELECT substr(record_date,1,7), COUNT(*) FROM school_records WHERE deleted_at IS NULL{} GROUP BY substr(record_date,1,7) ORDER BY 1", periodo("record_date"))),
         }))
     })
 }

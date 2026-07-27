@@ -34,7 +34,8 @@ export const api = {
     invoke<string>("add_addendum", { entryId, reason, content }),
 
   search: (query: string) => invoke<Record<string, string>[]>("search_global", { query }),
-  stats: () => invoke<Record<string, unknown>>("stats_counts"),
+  stats: (from?: string, to?: string) =>
+    invoke<Record<string, unknown>>("stats_counts", { from, to }),
   dashboard: () => invoke<Record<string, unknown>>("dashboard"),
 
   settingsGet: () => invoke<Record<string, string>>("settings_get"),
